@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paper2code.local/schemas/v1/paper-specification.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "specification_id", "dossier_gate", "scope_matrix", "method_contracts", "data_contracts", "baseline_contracts", "experiment_contracts", "acceptance_contracts"],
+  "properties": {
+    "schema_version": {"const": "1.0"}, "specification_id": {"type": "string"},
+    "dossier_gate": {"type": "string"}, "scope_matrix": {"type": "string"},
+    "method_contracts": {"type": "array", "minItems": 1, "items": {"type": "object"}},
+    "data_contracts": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "baseline_contracts": {"type": "array", "items": {"type": "string"}},
+    "experiment_contracts": {"type": "array", "minItems": 1, "items": {"type": "object"}},
+    "acceptance_contracts": {"type": "array", "minItems": 1, "items": {"type": "object"}}
+  }
+}

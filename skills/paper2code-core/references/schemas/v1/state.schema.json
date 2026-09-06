@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paper2code.local/schemas/v1/state.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "state", "return_target"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "state": {"enum": ["setup_pending", "ready_for_extraction", "evidence_extracted", "evidence_approved", "specification_ready", "specification_approved", "implementation_active", "cpu_validated", "full_run_approved", "full_run_complete", "evaluated", "needs_decision", "diagnosing", "revision_required"]},
+    "return_target": {"type": ["string", "null"], "enum": [null, "setup_pending", "ready_for_extraction", "evidence_extracted", "evidence_approved", "specification_ready", "specification_approved", "implementation_active", "cpu_validated", "full_run_approved", "full_run_complete"]}
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paper2code.local/schemas/v1/baseline-contract.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "baseline_id", "kind", "evidence_ids", "definition", "paper_settings", "checks"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "baseline_id": {"type": "string", "minLength": 1},
+    "kind": {"enum": ["classical", "learned"]},
+    "evidence_ids": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "definition": {"type": "string", "minLength": 1},
+    "paper_settings": {"type": "object"},
+    "reconstruction_decisions": {"type": "array", "items": {"type": "string"}},
+    "checks": {"type": "array", "minItems": 1, "items": {"type": "object", "required": ["name", "reference"], "properties": {"name": {"type": "string"}, "reference": {"type": "string"}}, "additionalProperties": true}
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paper2code.local/schemas/v1/run-bundle.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "run_id", "learned_method", "budget_approved_single_run", "resolved_configuration", "environment", "code_revision", "code_dirty", "dataset_manifests", "seeds", "commands", "logs", "metrics", "outputs", "status"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "run_id": {"type": "string", "minLength": 1},
+    "learned_method": {"type": "boolean"},
+    "budget_approved_single_run": {"type": "boolean"},
+    "resolved_configuration": {"type": "string"},
+    "environment": {"type": "string"},
+    "code_revision": {"type": "string", "pattern": "^[a-f0-9]{40}$"},
+    "code_dirty": {"type": "boolean"},
+    "dataset_manifests": {"type": "array", "items": {"type": "string"}},
+    "seeds": {"type": "array", "minItems": 1, "items": {"type": "integer"}},
+    "commands": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "logs": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "metrics": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "outputs": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "status": {"enum": ["prepared", "running", "complete", "failed"]}
+  }
+}

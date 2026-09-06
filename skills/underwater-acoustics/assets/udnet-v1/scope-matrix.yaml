@@ -1,0 +1,57 @@
+schema_version: '1.0'
+claims:
+  - claim_id: M0-UDNET
+    scope: must
+    description: Implement the paper's UDNet equalizer from approved method contracts.
+    evidence_ids: [E-UDNET-METHOD]
+    acceptance: {implementation: software-and-scientific-validation}
+  - claim_id: M0-CLASSICAL
+    scope: must
+    description: Implement ZF, MMSE, and DFE under explicit Baseline Contracts.
+    evidence_ids: [E-BASELINES-CLASSICAL]
+    acceptance: {implementation: independent-analytic-fixtures}
+  - claim_id: M0-SCN
+    scope: must
+    description: Reconstruct SCN with a one-hop mini dossier.
+    evidence_ids: [E-BASELINE-SCN]
+    acceptance: {implementation: approved-reconstruction-decisions}
+  - claim_id: M1-WATERMARK
+    scope: must
+    description: Evaluate NOF and NCS through Measurement-Driven Channel Replay.
+    evidence_ids: [E-DATA-NOF-NCS]
+    acceptance: {oracle: official-Watermark-V1}
+  - claim_id: M1-SIM-B
+    scope: must
+    description: Evaluate a source-faithful BELLHOP reconstruction of SIM-B.
+    evidence_ids: [E-DATA-SIM-B]
+    acceptance: {label: reconstructed-environment}
+  - claim_id: M1-CHANNEL-MODES
+    scope: must
+    description: Cover quasi-static and time-varying channel cases.
+    evidence_ids: [E-EXPERIMENT-CHANNEL-MODES]
+    acceptance: {paths: [quasi-static, time-varying]}
+  - claim_id: M2-ROBUSTNESS
+    scope: must
+    description: Cover imperfect CSI and clipping comparisons.
+    evidence_ids: [E-RESULT-IMPERFECT-CSI, E-RESULT-CLIPPING]
+    acceptance: {preregistered: true}
+  - claim_id: M2-SCALE
+    scope: must
+    description: Cover subcarrier-count and complexity comparisons.
+    evidence_ids: [E-RESULT-SUBCARRIERS, E-RESULT-COMPLEXITY]
+    acceptance: {preregistered: true}
+  - claim_id: OUT-DEFERRED-BASELINES
+    scope: out
+    description: SDRNet and modified DetNet are deferred beyond v1.
+    evidence_ids: [E-SCOPE-DEFERRED]
+    acceptance: null
+  - claim_id: OUT-SYNC
+    scope: out
+    description: Exact synchronization-offset reproduction is outside v1.
+    evidence_ids: [E-SCOPE-SYNC]
+    acceptance: null
+  - claim_id: OUT-NANPENG
+    scope: out
+    description: Unavailable author-recorded Nanpeng Island noise is excluded.
+    evidence_ids: [E-DATA-NANPENG]
+    acceptance: null

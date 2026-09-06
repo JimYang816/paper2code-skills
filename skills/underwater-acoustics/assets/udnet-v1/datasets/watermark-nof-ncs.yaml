@@ -1,0 +1,14 @@
+schema_version: '1.0'
+dataset_id: watermark-v1-nof-ncs
+source:
+  name: FFI Watermark V1
+  url: https://www.ffi.no/en/research/watermark
+license:
+  name: Watermark distribution terms
+  redistribution: Verify official terms; do not commit the distribution by default.
+availability: unavailable
+preparation_recipe:
+  - Obtain Watermark V1 from FFI under its terms.
+  - Replay the released NOF and NCS measured impulse responses with the official MATLAB implementation.
+  - Preserve official outputs as the Reference Oracle for any Python adapter.
+expected_files: []
