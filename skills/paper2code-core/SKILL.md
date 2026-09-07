@@ -19,6 +19,9 @@ scientific claims.
 
 Use `validate-ambiguities --root .` to enforce terminal Evidence Resolutions
 for every `must` ambiguity, `validate-wayfinding --root .` to check the
-decision frontier, and `validate-evidence-gate --root .` to validate a
-recorded Evidence Gate. Stage skills own the approval conversation and state
-transition; these commands only perform deterministic checks.
+decision frontier, `validate-evidence-gate --root .` to validate a recorded
+Evidence Gate, and `validate-scope-matrix --root .`,
+`validate-specification --root .`, and `validate-specification-gate --root .`
+to validate the specification stage artifacts and approval record. Stage
+skills own the approval conversation and state transition; these commands only
+perform deterministic checks.

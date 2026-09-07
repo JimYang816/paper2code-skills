@@ -18,7 +18,8 @@
     "setup-paper2code",
     "extract-paper2code",
     "paper-grilling",
-    "paper-wayfinding"
+    "paper-wayfinding",
+    "paper-spec"
   ],
   "skills": {
     "code-review": {
@@ -176,14 +177,17 @@
         "references/schemas/v1/evidence-audit.schema.json": "9cf10cd5f14f42307edf0c7e0701e0a02683969ed1ac7bfd8a53412ad77820e8",
         "references/schemas/v1/evidence-gate.schema.json": "9a7f4321d5348c4346bf613d5eaab8463fec28405965fa2a5aa66eac0f8be670",
         "references/schemas/v1/evidence.schema.json": "157f6a9bd7387aefdbb0d8dd6736314adb79af1d1d336de16badd7bd93f5b32e",
+        "references/schemas/v1/scope-matrix.schema.json": "e63f9e5ad278041e087ef8ec652e77f77a4631dce5f50a96e572265997febd22",
+        "references/schemas/v1/specification-gate.schema.json": "38edda969aff78cf3fcd74c8660679d2b0f225f071d355e97410c355958e8f70",
+        "references/schemas/v1/specification.schema.json": "fb68715f3bdfd54ac31e1659e4bad2d262a0e42aafa5101dd12acd2e20dd8a0f",
         "references/schemas/v1/state.schema.json": "8e7c9979ee0846b34741087596efe0a60b238f0088a6ea731ee2c8303e0bfdb5",
         "references/schemas/v1/wayfinding.schema.json": "43071b8eb113c21b10b45b7bd107a13b6f2c17ddb66b19d79ab539bda9ffeac1",
         "references/skill-closure.md": "0e589e0dcf93ede33cbba0fbf4f23a15425e76a68dac4a42203aeb8762083a71",
-        "scripts/paper2code.py": "790c29dbd4899a900ea54869536de0ad7fbf1d83092f16dc8e00e7a6f586bab4",
+        "scripts/paper2code.py": "c2e2d13c561678afa78dbe1a78d6f97bdd3be758fce442be56041993f812c418",
         "scripts/verify_closure.py": "0ba488ad8b08f39c117307890da50a392a235dca3f79f8161e2cbbd03300cd30",
-        "SKILL.md": "fbac7d6ddaf211cde2de1a602727f26b25ece116f1e592733c58b490f3e36029"
+        "SKILL.md": "f6c1ad28960706c0b4d56a3fa48e1e2c3083c510fb5beea0b34ecc1c107e274c"
       },
-      "content_hash": "8cdb32caef27e97ab30a237537f26866da5e8778e1ac0218efd30b3b16bb0c45"
+      "content_hash": "5d8936af7962b14ff14e76b46b2c3889f2ebb42b22b998ba238ab6f6febee774"
     },
     "research": {
       "classification": "unchanged",
@@ -354,6 +358,23 @@
         "SKILL.md": "8d1e1a21194a789c3e8ac388f4beae30cfcba6c4368a63cca0f7ef7906262aac"
       },
       "content_hash": "bd98463b2f162fdd904b27f7f66f996d9846a046a5949011405900e3843f6feb"
+    },
+    "paper-spec": {
+      "classification": "new",
+      "origin": {
+        "repository": "https://github.com/JimYang816/paper2code-skills",
+        "path": "skills/paper-spec"
+      },
+      "license": "MIT",
+      "dependencies": [
+        "paper2code-core"
+      ],
+      "files": {
+        "references/specification.md": "64895e74ad26a49edd34c24fdba2e14da67a7868bbb7b81458d02be588613992",
+        "scripts/spec.py": "53c3f5ff4834dc55d3c7bac74c07d808ca98f25a98ed5acf93e05047b44cbfaa",
+        "SKILL.md": "62dc6773b46ecec8c3cbf846a3b7ad1c61c99a17fd9da64e0b5e7ba6a8d44a23"
+      },
+      "content_hash": "b5f38ed66069686198ad45ea88451fc9fc8193089e1d473dbba988f192bea621"
     }
   },
   "distribution_files": {

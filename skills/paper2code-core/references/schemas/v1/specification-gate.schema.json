@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paper2code.local/schemas/v1/specification-gate.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "gate",
+    "transition",
+    "approved_at",
+    "approved_by",
+    "artifacts",
+    "schemas"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "gate": {"const": "specification"},
+    "transition": {
+      "const": "specification_ready -> specification_approved"
+    },
+    "approved_at": {"type": "string", "minLength": 1},
+    "approved_by": {"type": "string", "minLength": 1},
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dossier/paper.md",
+        "dossier/evidence.yaml",
+        "dossier/audit.yaml",
+        "dossier/ambiguities.yaml",
+        "dossier/scope-matrix.yaml",
+        "decisions/frontier.yaml",
+        "specification/specification.yaml",
+        "specification/paper-spec.md"
+      ],
+      "properties": {
+        "dossier/paper.md": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "dossier/evidence.yaml": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "dossier/audit.yaml": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "dossier/ambiguities.yaml": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "dossier/scope-matrix.yaml": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "decisions/frontier.yaml": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "specification/specification.yaml": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "specification/paper-spec.md": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      },
+      "patternProperties": {
+        "^contracts/": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "schemas": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scope", "specification"],
+      "properties": {
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256"],
+          "properties": {
+            "path": {"type": "string", "minLength": 1},
+            "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+          }
+        },
+        "specification": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256"],
+          "properties": {
+            "path": {"type": "string", "minLength": 1},
+            "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+          }
+        }
+      }
+    }
+  }
+}

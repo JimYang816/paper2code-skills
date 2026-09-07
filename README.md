@@ -5,8 +5,9 @@ nine unchanged upstream skills selected by ADR-0005, their required setup skill,
 the new `paper2code-core` deterministic support skill, the new
 `setup-paper2code` scaffold skill, the new `extract-paper2code` extraction
 Stage Skill, the new `paper-grilling` Evidence Gate Stage Skill, and the new
-`paper-wayfinding` decision-frontier Stage Skill. Remaining paper-specific
-stages and Deterministic Toolkit commands are subsequent implementation work.
+`paper-wayfinding` decision-frontier Stage Skill, and the new `paper-spec`
+Specification Gate Stage Skill. Remaining paper-specific stages and
+Deterministic Toolkit commands are subsequent implementation work.
 
 With Python 3.9 or later and no third-party packages:
 

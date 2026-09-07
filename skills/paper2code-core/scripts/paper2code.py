@@ -41,6 +41,11 @@ AUDIT_SCHEMA = SCHEMAS_DIR / "evidence-audit.schema.json"
 AMBIGUITIES_SCHEMA = SCHEMAS_DIR / "ambiguities.schema.json"
 WAYFINDING_SCHEMA = SCHEMAS_DIR / "wayfinding.schema.json"
 GATE_SCHEMA = SCHEMAS_DIR / "evidence-gate.schema.json"
+SCOPE_SCHEMA = SCHEMAS_DIR / "scope-matrix.schema.json"
+SPEC_SCHEMA = SCHEMAS_DIR / "specification.schema.json"
+SPEC_GATE_SCHEMA = SCHEMAS_DIR / "specification-gate.schema.json"
+PLACEHOLDER_RE = re.compile(r"\b(TODO|TBD|FIXME|PLACEHOLDER)\b", flags=re.IGNORECASE)
+UNRESOLVED_RE = re.compile(r"\b(UNKNOWN|TBD|TODO|FIXME|PLACEHOLDER)\b", flags=re.IGNORECASE)
 
 
 class ContractError(ValueError):
@@ -80,7 +85,24 @@ def json_type(value):
     return "unknown"
 
 
-def validate_against_schema(instance, schema, path="$"):
+def resolve_ref(root, ref):
+    if not ref.startswith("#/"):
+        raise ContractError(f"Unsupported schema reference: {ref}")
+    node = root
+    for part in ref[2:].split("/"):
+        part = part.replace("~1", "/").replace("~0", "~")
+        if not isinstance(node, dict) or part not in node:
+            raise ContractError(f"Unresolved schema reference: {ref}")
+        node = node[part]
+    return node
+
+
+def validate_against_schema(instance, schema, path="$", root=None):
+    if root is None:
+        root = schema
+    if "$ref" in schema:
+        validate_against_schema(instance, resolve_ref(root, schema["$ref"]), path, root)
+        return
     if "const" in schema and instance != schema["const"]:
         raise ContractError(f"{path} must equal {schema['const']!r}")
     if "enum" in schema and instance not in schema["enum"]:
@@ -103,15 +125,24 @@ def validate_against_schema(instance, schema, path="$"):
             if required not in instance:
                 raise ContractError(f"{path} is missing required field {required!r}")
         properties = schema.get("properties", {})
+        pattern_properties = schema.get("patternProperties", {})
         for key, value in instance.items():
             if key in properties:
-                validate_against_schema(value, properties[key], f"{path}.{key}")
+                validate_against_schema(value, properties[key], f"{path}.{key}", root)
+                continue
+            matched = False
+            for pattern, subschema in pattern_properties.items():
+                if re.search(pattern, key):
+                    validate_against_schema(value, subschema, f"{path}.{key}", root)
+                    matched = True
+            if matched:
+                continue
             elif schema.get("additionalProperties") is False:
                 raise ContractError(f"{path} has unexpected field {key!r}")
     elif isinstance(instance, list):
         if "items" in schema:
             for index, item in enumerate(instance):
-                validate_against_schema(item, schema["items"], f"{path}[{index}]")
+                validate_against_schema(item, schema["items"], f"{path}[{index}]", root)
         if "minItems" in schema and len(instance) < schema["minItems"]:
             raise ContractError(f"{path} needs at least {schema['minItems']} items")
         if "maxItems" in schema and len(instance) > schema["maxItems"]:
@@ -132,7 +163,7 @@ def validate_schema_file(value, schema_path, label):
         schema = load_json(schema_path)
     except ContractError as exc:
         raise ContractError(f"Cannot read {label} schema: {exc}") from exc
-    validate_against_schema(value, schema, label)
+    validate_against_schema(value, schema, label, root=schema)
 
 
 def validate_state(value):
@@ -343,6 +374,165 @@ def command_validate_evidence_gate(root):
     }
 
 
+def has_unresolved_value(value):
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped.lower() == "open":
+            return True
+        return bool(UNRESOLVED_RE.search(stripped))
+    if isinstance(value, list):
+        return any(has_unresolved_value(item) for item in value)
+    if isinstance(value, dict):
+        return any(has_unresolved_value(item) for item in value.values())
+    return False
+
+
+def item_has_unresolved(item, keys):
+    return any(key in item and has_unresolved_value(item[key]) for key in keys)
+
+
+def ensure_unique_ids(items, label):
+    identifiers = [item["id"] for item in items]
+    if len(identifiers) != len(set(identifiers)):
+        raise ContractError(f"{label} contains duplicate identifiers")
+
+
+def command_validate_scope_matrix(root):
+    root = root.resolve()
+    path = root / "dossier/scope-matrix.yaml"
+    if not path.is_file():
+        raise ContractError("Missing dossier/scope-matrix.yaml")
+    document = load_json(path)
+    validate_schema_file(document, SCOPE_SCHEMA, "dossier/scope-matrix.yaml")
+
+    claims = document.get("claims", [])
+    ensure_unique_ids(claims, "dossier/scope-matrix.yaml claims")
+    for claim in claims:
+        if claim.get("scope") == "must" and item_has_unresolved(
+            claim, {"title", "rationale"}
+        ):
+            raise ContractError(
+                f"must-scope claim {claim['id']} contains an unresolved value"
+            )
+
+    return {
+        "valid": True,
+        "claims": len(claims),
+        "must_claims": len([item for item in claims if item.get("scope") == "must"]),
+        "artifacts": ["dossier/scope-matrix.yaml"],
+    }
+
+
+def command_validate_specification(root):
+    root = root.resolve()
+    spec_path = root / "specification/specification.yaml"
+    paper_path = root / "specification/paper-spec.md"
+    if not spec_path.is_file():
+        raise ContractError("Missing specification/specification.yaml")
+    if not paper_path.is_file():
+        raise ContractError("Missing specification/paper-spec.md")
+
+    document = load_json(spec_path)
+    validate_schema_file(document, SPEC_SCHEMA, "specification/specification.yaml")
+
+    sections = ("method", "data", "baselines", "experiments", "figures", "metrics")
+    for section in sections:
+        ensure_unique_ids(
+            document.get(section, []), f"specification/specification.yaml {section}"
+        )
+    ensure_unique_ids(
+        document["scope"]["claims"], "specification/specification.yaml scope.claims"
+    )
+    ensure_unique_ids(
+        document["acceptance"]["rules"], "specification/specification.yaml acceptance.rules"
+    )
+
+    claim_ids = {item["id"] for item in document["scope"]["claims"]}
+    metric_ids = {item["id"] for item in document["metrics"]}
+    for rule in document["acceptance"]["rules"]:
+        if rule.get("scope") != "must":
+            continue
+        if rule["metric_id"] not in metric_ids:
+            raise ContractError(
+                f"acceptance rule {rule['id']} references unknown metric {rule['metric_id']}"
+            )
+        missing_claims = sorted(set(rule["claim_ids"]) - claim_ids)
+        if missing_claims:
+            raise ContractError(
+                f"acceptance rule {rule['id']} references unknown claims: "
+                + ", ".join(missing_claims)
+            )
+        if item_has_unresolved(rule, {"criterion", "tolerance"}):
+            raise ContractError(
+                f"must-scope acceptance rule {rule['id']} contains an unresolved value"
+            )
+
+    for section in sections:
+        for item in document[section]:
+            if item.get("scope") == "must" and item_has_unresolved(
+                item, {"title", "specification", "acceptance", "unit"}
+            ):
+                raise ContractError(
+                    f"must-scope {section.rstrip('s')} item {item['id']} contains an unresolved value"
+                )
+
+    paper = paper_path.read_text(encoding="utf-8")
+    for heading in (
+        "# Paper Specification",
+        "## Scope",
+        "## Method",
+        "## Data",
+        "## Baselines",
+        "## Experiments",
+        "## Figures",
+        "## Metrics",
+        "## Uncertainty",
+        "## Budget",
+        "## Acceptance",
+    ):
+        if heading not in paper:
+            raise ContractError(
+                f"specification/paper-spec.md is missing required heading {heading!r}"
+            )
+    if PLACEHOLDER_RE.search(paper):
+        raise ContractError("specification/paper-spec.md contains unresolved placeholders")
+
+    return {
+        "valid": True,
+        "scope_claims": len(document["scope"]["claims"]),
+        "method_items": len(document["method"]),
+        "data_items": len(document["data"]),
+        "baseline_items": len(document["baselines"]),
+        "experiment_items": len(document["experiments"]),
+        "figure_items": len(document["figures"]),
+        "metric_items": len(document["metrics"]),
+        "acceptance_rules": len(document["acceptance"]["rules"]),
+        "artifacts": [
+            "specification/specification.yaml",
+            "specification/paper-spec.md",
+        ],
+    }
+
+
+def command_validate_specification_gate(root):
+    root = root.resolve()
+    path = root / ".paper2code/gates/specification-gate.yaml"
+    if not path.is_file():
+        raise ContractError("Missing .paper2code/gates/specification-gate.yaml")
+    document = load_json(path)
+    validate_schema_file(
+        document, SPEC_GATE_SCHEMA, ".paper2code/gates/specification-gate.yaml"
+    )
+    return {
+        "valid": True,
+        "gate": document["gate"],
+        "transition": document["transition"],
+        "approved_by": document["approved_by"],
+        "artifacts": sorted(document["artifacts"]),
+        "schemas": sorted(document["schemas"]),
+    }
+
+
 def transition_allowed(current, target, return_target):
     if target in EXCEPTION_STATES:
         return current in NORMAL_STATES and return_target == current
@@ -402,6 +592,24 @@ def build_parser():
     gate = commands.add_parser("validate-evidence-gate", help="validate the Evidence Gate record")
     gate.add_argument("--root", type=Path, required=True)
     gate.set_defaults(handler=lambda args: command_validate_evidence_gate(args.root))
+
+    scope = commands.add_parser("validate-scope-matrix", help="validate the Scope Matrix")
+    scope.add_argument("--root", type=Path, required=True)
+    scope.set_defaults(handler=lambda args: command_validate_scope_matrix(args.root))
+
+    specification = commands.add_parser(
+        "validate-specification", help="validate the paper specification"
+    )
+    specification.add_argument("--root", type=Path, required=True)
+    specification.set_defaults(handler=lambda args: command_validate_specification(args.root))
+
+    specification_gate = commands.add_parser(
+        "validate-specification-gate", help="validate the Specification Gate record"
+    )
+    specification_gate.add_argument("--root", type=Path, required=True)
+    specification_gate.set_defaults(
+        handler=lambda args: command_validate_specification_gate(args.root)
+    )
 
     hash_command = commands.add_parser("canonical-hash", help="hash canonical JSON")
     hash_command.add_argument("document", type=Path)
