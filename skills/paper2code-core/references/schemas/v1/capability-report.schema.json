@@ -7,6 +7,7 @@
   "properties": {
     "schema_version": {"const": "1.0"},
     "stage": {"type": "string"},
+    "pdf": {"type": ["string", "null"]},
     "available": {"type": "array", "items": {"type": "object"}},
     "missing": {"type": "array", "items": {"type": "object"}},
     "recovery_commands": {"type": "array", "items": {"type": "string"}}

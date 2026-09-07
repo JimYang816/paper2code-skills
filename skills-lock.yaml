@@ -15,7 +15,8 @@
     "code-review",
     "diagnosing-bugs",
     "paper2code-core",
-    "setup-paper2code"
+    "setup-paper2code",
+    "extract-paper2code"
   ],
   "skills": {
     "code-review": {
@@ -168,14 +169,16 @@
         "references/github-graph.md": "139f824b64f1aec6c60722ffb7b0c9c4962fd09db1bdb8fbf3b48a839d5b4fd0",
         "references/lifecycle.md": "a36c25dbfebf4551c6459bab3400d810e987e59271267718b75f22aebafdef3b",
         "references/repository-layout.md": "11d7c93be6aeadf29c691cfa008a9d0c4fce7080f453e3cd83cea8b65bc8c899",
-        "references/schemas/v1/capability-report.schema.json": "48724d83f562aeedb4b4b90e0657b0ea52e720174db57e2bae77a211994cab68",
+        "references/schemas/v1/capability-report.schema.json": "5e6d42f8ae8a7e631e0621083355bc16de44e75560ba65e90c38d9d66bc8983a",
+        "references/schemas/v1/evidence-audit.schema.json": "9cf10cd5f14f42307edf0c7e0701e0a02683969ed1ac7bfd8a53412ad77820e8",
+        "references/schemas/v1/evidence.schema.json": "157f6a9bd7387aefdbb0d8dd6736314adb79af1d1d336de16badd7bd93f5b32e",
         "references/schemas/v1/state.schema.json": "8e7c9979ee0846b34741087596efe0a60b238f0088a6ea731ee2c8303e0bfdb5",
         "references/skill-closure.md": "0e589e0dcf93ede33cbba0fbf4f23a15425e76a68dac4a42203aeb8762083a71",
-        "scripts/paper2code.py": "732b593fdab12b325ad5527615d4ea2dfd6589cb6cb00ef3d91126aaf56e4ce2",
+        "scripts/paper2code.py": "adb9aa3e4a1d1fda8644f911ff6795f21cd9da21d0edc70721be4ac585dd6d06",
         "scripts/verify_closure.py": "0ba488ad8b08f39c117307890da50a392a235dca3f79f8161e2cbbd03300cd30",
-        "SKILL.md": "8740076070d0b2f2c3f2c4340e359b97616fd8a026470f9f564b0a6ed9db6504"
+        "SKILL.md": "43891dc679e7d6f5ffd2c886dc115209b77ff2231207c6ff6dc6c049f501be75"
       },
-      "content_hash": "6a9851cf0aff2c2fcf552862e8f5339177d1960965ea0fc76a0d3996e24429f6"
+      "content_hash": "06d3f37844710bc9354ac0b155dc0f3048c304d50905cd53889d471dc303bb1d"
     },
     "research": {
       "classification": "unchanged",
@@ -293,6 +296,25 @@
         "SKILL.md": "8e8b247f917166653d017c153c20a64b1dc38e511054b95eb490f7634047b114"
       },
       "content_hash": "1a1e60c641bb05843868c913973fd937e07ae2ce051879ffc21cb59b48061bb3"
+    },
+    "extract-paper2code": {
+      "classification": "new",
+      "origin": {
+        "repository": "https://github.com/JimYang816/paper2code-skills",
+        "path": "skills/extract-paper2code"
+      },
+      "license": "MIT",
+      "dependencies": [
+        "paper2code-core"
+      ],
+      "files": {
+        "references/extraction.md": "603601dcb0229a7174077f7d2264bd09d21aac7df293e3bce3e69ddd29c8412a",
+        "scripts/capabilities.py": "e882f263288456f71a20cbff7c43b88958f742dd19f4380e3a64bed5c7bd679a",
+        "scripts/check_capabilities.py": "31d8c2ca8f6c56906418dfac8c4302859a20ee5be844857eb05c6892b3d0f28d",
+        "scripts/extract.py": "2f6d4eddc985bf261c570c9aac72da8b2860ff062cbfe8a737b54a8cdf573946",
+        "SKILL.md": "4bb7b0b27827a0969267b2d4b88be86989be4e81194f11ddfa328b6c12e4965f"
+      },
+      "content_hash": "28a09a6951a84e1ee87615e6e6276c2d6724352db4f8f5600d67deb70ffc731d"
     }
   },
   "distribution_files": {

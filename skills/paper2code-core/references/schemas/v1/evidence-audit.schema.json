@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paper2code.local/schemas/v1/evidence-audit.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "items", "summary"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "generated_at": {"type": "string", "minLength": 1},
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "category",
+          "severity",
+          "title",
+          "detail",
+          "evidence_ids",
+          "page",
+          "status",
+          "triage_note"
+        ],
+        "properties": {
+          "id": {"type": "string", "pattern": "^AUD-[0-9]{4}$"},
+          "category": {
+            "enum": [
+              "omission",
+              "contradiction",
+              "unit",
+              "indexing",
+              "citation_dependency",
+              "unsupported_inference"
+            ]
+          },
+          "severity": {
+            "enum": ["blocking", "warning"]
+          },
+          "title": {"type": "string", "minLength": 1},
+          "detail": {"type": "string", "minLength": 1},
+          "evidence_ids": {
+            "type": "array",
+            "items": {"type": "string"}
+          },
+          "page": {"type": ["integer", "null"], "minimum": 1},
+          "status": {"enum": ["open", "triaged"]},
+          "triage_note": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "open", "triaged"],
+      "properties": {
+        "total": {"type": "integer", "minimum": 0},
+        "open": {"type": "integer", "minimum": 0},
+        "triaged": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

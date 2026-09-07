@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic setup validation and workflow-state checks.
+"""Deterministic setup, dossier, and workflow-state checks.
 
 This command uses only the Python standard library. Scientific judgement stays
 with the stage skills and the researcher.
@@ -8,6 +8,7 @@ with the stage skills and the researcher.
 import argparse
 import hashlib
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -34,6 +35,9 @@ INITIAL_RECORDS = {
     "dossier/scope-matrix.yaml": "claims",
 }
 VERIFY_CLOSURE = Path(__file__).with_name("verify_closure.py")
+SCHEMAS_DIR = Path(__file__).resolve().parents[1] / "references" / "schemas" / "v1"
+EVIDENCE_SCHEMA = SCHEMAS_DIR / "evidence.schema.json"
+AUDIT_SCHEMA = SCHEMAS_DIR / "evidence-audit.schema.json"
 
 
 class ContractError(ValueError):
@@ -53,6 +57,79 @@ def canonical_json(value):
 
 def canonical_hash(document):
     return hashlib.sha256(canonical_json(load_json(document)).encode("utf-8")).hexdigest()
+
+
+def json_type(value):
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, int):
+        return "integer"
+    if isinstance(value, float):
+        return "number"
+    if isinstance(value, str):
+        return "string"
+    if isinstance(value, list):
+        return "array"
+    if isinstance(value, dict):
+        return "object"
+    return "unknown"
+
+
+def validate_against_schema(instance, schema, path="$"):
+    if "const" in schema and instance != schema["const"]:
+        raise ContractError(f"{path} must equal {schema['const']!r}")
+    if "enum" in schema and instance not in schema["enum"]:
+        allowed = ", ".join(repr(item) for item in schema["enum"])
+        raise ContractError(f"{path} must be one of: {allowed}")
+
+    declared = schema.get("type")
+    if declared:
+        allowed_types = declared if isinstance(declared, list) else [declared]
+        actual = json_type(instance)
+        if not any(
+            actual == expected or (expected == "number" and actual == "integer")
+            for expected in allowed_types
+        ):
+            expected = ", ".join(allowed_types)
+            raise ContractError(f"{path} must be {expected}, got {actual}")
+
+    if isinstance(instance, dict):
+        for required in schema.get("required", []):
+            if required not in instance:
+                raise ContractError(f"{path} is missing required field {required!r}")
+        properties = schema.get("properties", {})
+        for key, value in instance.items():
+            if key in properties:
+                validate_against_schema(value, properties[key], f"{path}.{key}")
+            elif schema.get("additionalProperties") is False:
+                raise ContractError(f"{path} has unexpected field {key!r}")
+    elif isinstance(instance, list):
+        if "items" in schema:
+            for index, item in enumerate(instance):
+                validate_against_schema(item, schema["items"], f"{path}[{index}]")
+        if "minItems" in schema and len(instance) < schema["minItems"]:
+            raise ContractError(f"{path} needs at least {schema['minItems']} items")
+        if "maxItems" in schema and len(instance) > schema["maxItems"]:
+            raise ContractError(f"{path} has more than {schema['maxItems']} items")
+    elif isinstance(instance, str):
+        if "minLength" in schema and len(instance) < schema["minLength"]:
+            raise ContractError(f"{path} must have at least {schema['minLength']} characters")
+        if "pattern" in schema and not re.fullmatch(schema["pattern"], instance):
+            raise ContractError(f"{path} does not match required pattern")
+
+    if "minimum" in schema and isinstance(instance, (int, float)) and not isinstance(instance, bool):
+        if instance < schema["minimum"]:
+            raise ContractError(f"{path} must be at least {schema['minimum']}")
+
+
+def validate_schema_file(value, schema_path, label):
+    try:
+        schema = load_json(schema_path)
+    except ContractError as exc:
+        raise ContractError(f"Cannot read {label} schema: {exc}") from exc
+    validate_against_schema(value, schema, label)
 
 
 def validate_state(value):
@@ -113,6 +190,59 @@ def command_validate_setup(root):
     }
 
 
+def command_validate_dossier(root):
+    root = root.resolve()
+    paper_path = root / "dossier/paper.md"
+    evidence_path = root / "dossier/evidence.yaml"
+    audit_path = root / "dossier/audit.yaml"
+    figures_path = root / "dossier/figures"
+
+    for path in (paper_path, evidence_path, audit_path):
+        if not path.is_file():
+            raise ContractError(f"Missing dossier artifact: {path.relative_to(root)}")
+    if not figures_path.is_dir():
+        raise ContractError("Missing dossier/figures directory")
+
+    paper = paper_path.read_text(encoding="utf-8")
+    for heading in ("# Paper Dossier", "## Source", "## Evidence", "## Figures", "## Audit"):
+        if heading not in paper:
+            raise ContractError(f"dossier/paper.md is missing required heading {heading!r}")
+    if re.search(r"\b(TODO|TBD|FIXME|PLACEHOLDER)\b", paper, flags=re.IGNORECASE):
+        raise ContractError("dossier/paper.md contains unresolved placeholders")
+
+    evidence = load_json(evidence_path)
+    validate_schema_file(evidence, EVIDENCE_SCHEMA, "dossier/evidence.yaml")
+    items = evidence.get("items", [])
+    identifiers = [item["id"] for item in items]
+    if len(identifiers) != len(set(identifiers)):
+        raise ContractError("dossier/evidence.yaml contains duplicate Evidence Item identifiers")
+
+    audit = load_json(audit_path)
+    validate_schema_file(audit, AUDIT_SCHEMA, "dossier/audit.yaml")
+    open_findings = []
+    for item in audit.get("items", []):
+        if item["status"] == "open":
+            open_findings.append(item["id"])
+        elif item["status"] == "triaged" and not item.get("triage_note"):
+            raise ContractError(f"Triaged audit finding {item['id']} needs a triage note")
+    if open_findings:
+        raise ContractError(
+            "Untriaged Evidence Audit findings: " + ", ".join(sorted(open_findings))
+        )
+
+    return {
+        "valid": True,
+        "evidence_items": len(items),
+        "audit_findings": len(audit.get("items", [])),
+        "artifacts": [
+            "dossier/paper.md",
+            "dossier/evidence.yaml",
+            "dossier/audit.yaml",
+            "dossier/figures",
+        ],
+    }
+
+
 def transition_allowed(current, target, return_target):
     if target in EXCEPTION_STATES:
         return current in NORMAL_STATES and return_target == current
@@ -152,6 +282,10 @@ def build_parser():
     validate = commands.add_parser("validate-setup", help="validate initial setup artifacts")
     validate.add_argument("--root", type=Path, required=True)
     validate.set_defaults(handler=lambda args: command_validate_setup(args.root))
+
+    dossier = commands.add_parser("validate-dossier", help="validate extracted dossier artifacts")
+    dossier.add_argument("--root", type=Path, required=True)
+    dossier.set_defaults(handler=lambda args: command_validate_dossier(args.root))
 
     hash_command = commands.add_parser("canonical-hash", help="hash canonical JSON")
     hash_command.add_argument("document", type=Path)
