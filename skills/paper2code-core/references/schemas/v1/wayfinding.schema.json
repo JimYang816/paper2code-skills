@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paper2code.local/schemas/v1/wayfinding.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "ambiguities", "frontier"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "ambiguities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "work"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "work": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "kind", "title", "issue"],
+              "properties": {
+                "id": {"type": "string", "minLength": 1},
+                "kind": {
+                  "enum": ["research", "decision", "prototype"]
+                },
+                "title": {"type": "string", "minLength": 1},
+                "issue": {"type": ["string", "null"]}
+              }
+            }
+          }
+        }
+      }
+    },
+    "frontier": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "title", "issue", "blocked_by"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "kind": {
+            "enum": ["research", "decision", "prototype"]
+          },
+          "title": {"type": "string", "minLength": 1},
+          "issue": {"type": ["string", "null"]},
+          "blocked_by": {
+            "type": "array",
+            "items": {"type": "string"}
+          }
+        }
+      }
+    }
+  }
+}

@@ -38,6 +38,9 @@ VERIFY_CLOSURE = Path(__file__).with_name("verify_closure.py")
 SCHEMAS_DIR = Path(__file__).resolve().parents[1] / "references" / "schemas" / "v1"
 EVIDENCE_SCHEMA = SCHEMAS_DIR / "evidence.schema.json"
 AUDIT_SCHEMA = SCHEMAS_DIR / "evidence-audit.schema.json"
+AMBIGUITIES_SCHEMA = SCHEMAS_DIR / "ambiguities.schema.json"
+WAYFINDING_SCHEMA = SCHEMAS_DIR / "wayfinding.schema.json"
+GATE_SCHEMA = SCHEMAS_DIR / "evidence-gate.schema.json"
 
 
 class ContractError(ValueError):
@@ -243,6 +246,103 @@ def command_validate_dossier(root):
     }
 
 
+def command_validate_ambiguities(root):
+    root = root.resolve()
+    path = root / "dossier/ambiguities.yaml"
+    if not path.is_file():
+        raise ContractError("Missing dossier/ambiguities.yaml")
+    document = load_json(path)
+    validate_schema_file(document, AMBIGUITIES_SCHEMA, "dossier/ambiguities.yaml")
+
+    ambiguities = document.get("ambiguities", [])
+    identifiers = [item["id"] for item in ambiguities]
+    if len(identifiers) != len(set(identifiers)):
+        raise ContractError("dossier/ambiguities.yaml contains duplicate ambiguity identifiers")
+
+    must = [item for item in ambiguities if item.get("scope") == "must"]
+    unresolved = [item["id"] for item in must if item.get("status") != "resolved"]
+    if unresolved:
+        raise ContractError(
+            "unresolved must-scope ambiguity: " + ", ".join(sorted(unresolved))
+        )
+    missing_resolution = [
+        item["id"]
+        for item in must
+        if item.get("status") == "resolved"
+        and not isinstance(item.get("resolution"), dict)
+    ]
+    if missing_resolution:
+        raise ContractError(
+            "resolved must-scope ambiguity is missing a resolution: "
+            + ", ".join(sorted(missing_resolution))
+        )
+
+    return {
+        "valid": True,
+        "ambiguities": len(ambiguities),
+        "must_total": len(must),
+        "must_resolved": len([item for item in must if item.get("status") == "resolved"]),
+        "artifacts": ["dossier/ambiguities.yaml"],
+    }
+
+
+def command_validate_wayfinding(root):
+    root = root.resolve()
+    path = root / "decisions/frontier.yaml"
+    if not path.is_file():
+        raise ContractError("Missing decisions/frontier.yaml")
+    document = load_json(path)
+    validate_schema_file(document, WAYFINDING_SCHEMA, "decisions/frontier.yaml")
+
+    mapped = set()
+    work_ids = set()
+    for ambiguity in document.get("ambiguities", []):
+        mapped.add(ambiguity["id"])
+        for work in ambiguity.get("work", []):
+            work_ids.add(work["id"])
+
+    ambiguity_path = root / "dossier/ambiguities.yaml"
+    if not ambiguity_path.is_file():
+        raise ContractError("Missing dossier/ambiguities.yaml")
+    ambiguity_document = load_json(ambiguity_path)
+    known = {item["id"] for item in ambiguity_document.get("ambiguities", [])}
+    unknown = sorted(mapped - known)
+    if unknown:
+        raise ContractError(
+            "wayfinding map references unknown ambiguities: " + ", ".join(unknown)
+        )
+
+    frontier_ids = [item["id"] for item in document.get("frontier", [])]
+    missing_work = sorted(set(frontier_ids) - work_ids)
+    if missing_work:
+        raise ContractError(
+            "frontier items have no work entry: " + ", ".join(missing_work)
+        )
+
+    return {
+        "valid": True,
+        "mapped_ambiguities": len(document.get("ambiguities", [])),
+        "frontier_items": len(document.get("frontier", [])),
+        "artifacts": ["decisions/frontier.yaml"],
+    }
+
+
+def command_validate_evidence_gate(root):
+    root = root.resolve()
+    path = root / ".paper2code/gates/evidence-gate.yaml"
+    if not path.is_file():
+        raise ContractError("Missing .paper2code/gates/evidence-gate.yaml")
+    document = load_json(path)
+    validate_schema_file(document, GATE_SCHEMA, ".paper2code/gates/evidence-gate.yaml")
+    return {
+        "valid": True,
+        "gate": document["gate"],
+        "transition": document["transition"],
+        "approved_by": document["approved_by"],
+        "artifacts": sorted(document["artifacts"]),
+    }
+
+
 def transition_allowed(current, target, return_target):
     if target in EXCEPTION_STATES:
         return current in NORMAL_STATES and return_target == current
@@ -286,6 +386,22 @@ def build_parser():
     dossier = commands.add_parser("validate-dossier", help="validate extracted dossier artifacts")
     dossier.add_argument("--root", type=Path, required=True)
     dossier.set_defaults(handler=lambda args: command_validate_dossier(args.root))
+
+    ambiguities = commands.add_parser(
+        "validate-ambiguities", help="validate ambiguity resolutions and must-scope closure"
+    )
+    ambiguities.add_argument("--root", type=Path, required=True)
+    ambiguities.set_defaults(handler=lambda args: command_validate_ambiguities(args.root))
+
+    wayfinding = commands.add_parser(
+        "validate-wayfinding", help="validate the wayfinding decision frontier"
+    )
+    wayfinding.add_argument("--root", type=Path, required=True)
+    wayfinding.set_defaults(handler=lambda args: command_validate_wayfinding(args.root))
+
+    gate = commands.add_parser("validate-evidence-gate", help="validate the Evidence Gate record")
+    gate.add_argument("--root", type=Path, required=True)
+    gate.set_defaults(handler=lambda args: command_validate_evidence_gate(args.root))
 
     hash_command = commands.add_parser("canonical-hash", help="hash canonical JSON")
     hash_command.add_argument("document", type=Path)

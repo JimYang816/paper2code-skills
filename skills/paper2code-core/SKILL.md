@@ -16,3 +16,9 @@ To validate extracted dossier artifacts in a Reproduction Repository, run
 This command checks the Markdown dossier, `evidence.yaml`, `audit.yaml`, and
 their versioned JSON Schemas without installing dependencies or interpreting
 scientific claims.
+
+Use `validate-ambiguities --root .` to enforce terminal Evidence Resolutions
+for every `must` ambiguity, `validate-wayfinding --root .` to check the
+decision frontier, and `validate-evidence-gate --root .` to validate a
+recorded Evidence Gate. Stage skills own the approval conversation and state
+transition; these commands only perform deterministic checks.

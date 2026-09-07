@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paper2code.local/schemas/v1/ambiguities.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "ambiguities"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "ambiguities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "scope",
+          "question",
+          "evidence_ids",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^AMB-[0-9]{4}$"
+          },
+          "scope": {
+            "enum": ["must", "should", "out"]
+          },
+          "question": {"type": "string", "minLength": 1},
+          "evidence_ids": {
+            "type": "array",
+            "items": {"type": "string"}
+          },
+          "status": {
+            "enum": ["open", "resolved"]
+          },
+          "resolution": {
+            "type": ["object", "null"],
+            "additionalProperties": false,
+            "required": ["kind", "basis", "evidence_ids", "decision_ids"],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "confirmed",
+                  "derived",
+                  "reconstructed",
+                  "empirically_selected",
+                  "excluded"
+                ]
+              },
+              "basis": {"type": "string", "minLength": 1},
+              "evidence_ids": {
+                "type": "array",
+                "items": {"type": "string"}
+              },
+              "decision_ids": {
+                "type": "array",
+                "items": {"type": "string"}
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
