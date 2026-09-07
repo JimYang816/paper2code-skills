@@ -1,0 +1,7 @@
+# Anchor UDNet on source-faithful simulation
+
+The UDNet anchor will include both the measurement-driven Watermark NOF/NCS replay and a BELLHOP propagation-synthesized SIM-B reconstruction because the paper evaluates both source families. Official Watermark V1 is the Reference Oracle and authoritative generation path; Python may consume exported artifacts or replace the replay only after an explicit numerical-equivalence test. Because the target paper omits inputs needed to recreate the original BELLHOP environment, SIM-B will be reported as a source-faithful BELLHOP reconstruction rather than as the authors' exact samples.
+
+The v1 acceptance scope is M0--M2: UDNet, ZF/MMSE/DFE and SCN; NOF, NCS, and reconstructed SIM-B; quasi-static and time-varying channels; imperfect CSI, clipping, subcarrier-count, and complexity comparisons. SDRNet, the modified DetNet, and exact synchronization-offset experiments are deferred to v1.1. The authors' unreleased Nanpeng Island offshore-noise measurement is permanently outside the reproduction scope: the workflow must not fabricate an at-sea dataset and call it a reproduction.
+
+Classical comparison methods will receive algorithm-level Baseline Contracts. Learned baselines without released code will receive a one-hop mini Paper Dossier for their cited source paper; unresolved details become approved Reconstruction Decisions rather than causing unbounded recursive literature reconstruction.
