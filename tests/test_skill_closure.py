@@ -5,8 +5,9 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
-import tempfile
 import unittest
+
+from _tmp import TempDirectory
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,7 +16,7 @@ CLI = ROOT / "skills/paper2code-core/scripts/verify_closure.py"
 
 class ClosureTests(unittest.TestCase):
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory()
+        self.temp = TempDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         for name in ("skills", "licenses"):
@@ -44,7 +45,8 @@ class ClosureTests(unittest.TestCase):
 
     @unittest.skipUnless(shutil.which("git"), "Git required for checkout portability")
     def test_consumer_git_checkout_preserves_locked_bytes(self):
-        with tempfile.TemporaryDirectory() as checkout:
+        with TempDirectory() as checkout:
+            checkout = Path(checkout)
             for args in (("init",), ("add", "."),
                          ("checkout-index", "--all", "--prefix=" + Path(checkout).as_posix() + "/")):
                 subprocess.run(["git", "-C", str(self.root), "-c", "core.autocrlf=true", *args],

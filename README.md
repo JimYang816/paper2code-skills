@@ -2,8 +2,9 @@
 
 The canonical reusable Skill Closure is in `skills/`. It currently contains the
 nine unchanged upstream skills selected by ADR-0005, their required setup skill,
-and the new `paper2code-core` verification support skill. Paper-specific stages
-and the rest of the Deterministic Toolkit are subsequent implementation work.
+the new `paper2code-core` verification support skill, and the new
+`setup-paper2code` scaffold skill. Paper-specific stages and the remaining
+Deterministic Toolkit commands are subsequent implementation work.
 
 With Python 3.9 or later and no third-party packages:
 

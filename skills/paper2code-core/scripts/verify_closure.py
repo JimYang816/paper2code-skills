@@ -38,6 +38,8 @@ def inventory(directory):
     result = {}
     for path in sorted(directory.rglob("*")):
         require(not path.is_symlink(), f"Symlink not allowed: {path}")
+        if "__pycache__" in path.parts or path.suffix == ".pyc":
+            continue
         if path.is_file():
             result[path.relative_to(directory).as_posix()] = digest(path.read_bytes())
     return result
