@@ -26,7 +26,7 @@
       "additionalProperties": false,
       "required": ["revision", "dirty"],
       "properties": {
-        "revision": {"type": "string", "pattern": "^(HEAD|[0-9a-f]{7,64})$"},
+        "revision": {"type": "string", "pattern": "^[0-9a-f]{7,64}$"},
         "dirty": {"const": false}
       }
     },
@@ -71,13 +71,34 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "path", "source", "license", "sha256"],
+        "required": ["id", "path", "source", "license", "sha256", "manifest"],
         "properties": {
           "id": {"type": "string", "pattern": "^DATA-[0-9]{4}$"},
           "path": {"type": "string", "minLength": 1},
           "source": {"type": "string", "minLength": 1},
           "license": {"type": "string", "minLength": 1},
-          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "manifest": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["expected_files", "preparation_recipe"],
+            "properties": {
+              "expected_files": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["path", "sha256"],
+                  "properties": {
+                    "path": {"type": "string", "minLength": 1},
+                    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+                  }
+                }
+              },
+              "preparation_recipe": {"type": "string", "minLength": 1}
+            }
+          }
         }
       }
     },
@@ -104,7 +125,7 @@
           "log": {"type": "string", "minLength": 1},
           "metrics": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
           "outputs": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
-          "failure_class": {"enum": ["software", "scientific", "evidence", "environment"]}
+          "failure_class": {"enum": ["software", "scientific", "result", "evidence", "environment"]}
         }
       }
     }

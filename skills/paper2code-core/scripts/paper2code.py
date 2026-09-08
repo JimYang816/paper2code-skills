@@ -51,7 +51,6 @@ FULL_RUN_GATE_SCHEMA = SCHEMAS_DIR / "full-run-gate.schema.json"
 FULL_RUN_REPORT_SCHEMA = SCHEMAS_DIR / "full-run-report.schema.json"
 VALIDATION_KINDS = {"data", "model", "baseline", "metric", "reporting"}
 VALIDATION_CHECKS = ("invariants", "units", "shapes", "gradients")
-RUN_FAILURE_CLASSES = {"software", "scientific", "evidence", "environment"}
 PLACEHOLDER_RE = re.compile(r"\b(TODO|TBD|FIXME|PLACEHOLDER)\b", flags=re.IGNORECASE)
 UNRESOLVED_RE = re.compile(r"\b(UNKNOWN|TBD|TODO|FIXME|PLACEHOLDER)\b", flags=re.IGNORECASE)
 
@@ -714,7 +713,8 @@ def _find_run_bundle(root, run_id=None):
     return path, bundle
 
 
-def _run_substitutions(root, run_id, seed, portable=False):
+def _run_substitutions(root, bundle, seed, portable=False):
+    run_id = bundle["run_id"]
     run_dir = f"runs/{run_id}" if portable else str(root / "runs" / run_id)
     root_value = "." if portable else str(root)
     return {
@@ -722,7 +722,7 @@ def _run_substitutions(root, run_id, seed, portable=False):
         "{run_dir}": run_dir,
         "{seed}": str(seed),
         "{python}": "{python}" if portable else sys.executable,
-        "{workers}": "1",
+        "{workers}": str(bundle["resolved_config"]["execution"]["workers"]),
     }
 
 
@@ -739,7 +739,7 @@ def _validate_run_relative(relative, label):
 
 
 def _run_artifact_paths(root, bundle, command, seed, portable=True):
-    substitutions = _run_substitutions(root, bundle["run_id"], seed, portable=portable)
+    substitutions = _run_substitutions(root, bundle, seed, portable=portable)
     values = {
         "log": _replace_run_tokens(command["log"], substitutions),
         "metrics": [_replace_run_tokens(item, substitutions) for item in command["metrics"]],
@@ -761,6 +761,13 @@ def _validate_run_bundle(root, run_id=None):
         raise ContractError("Full Run directory name must match bundle run_id")
     if not bundle["resolved_config"]:
         raise ContractError("Full Run resolved_config must not be empty")
+    execution = bundle["resolved_config"].get("execution")
+    if not isinstance(execution, dict):
+        raise ContractError("Full Run resolved_config must declare execution settings")
+    if not isinstance(execution.get("device"), str) or not execution["device"]:
+        raise ContractError("Full Run execution.device must be a non-empty string")
+    if not isinstance(execution.get("workers"), int) or isinstance(execution["workers"], bool) or execution["workers"] < 1:
+        raise ContractError("Full Run execution.workers must be a positive integer")
 
     dataset_ids = [item["id"] for item in bundle["datasets"]]
     ensure_unique_ids(bundle["datasets"], "Full Run datasets")
@@ -779,6 +786,17 @@ def _validate_run_bundle(root, run_id=None):
         actual = raw_hash(dataset_path)
         if actual != item["sha256"]:
             raise ContractError(f"Full Run dataset hash mismatch: {item['path']}")
+        manifest_files = item["manifest"]["expected_files"]
+        manifest_ids = [entry["path"] for entry in manifest_files]
+        if len(manifest_ids) != len(set(manifest_ids)):
+            raise ContractError(f"Duplicate files in {item['id']} Dataset Manifest")
+        for entry in manifest_files:
+            _validate_relative_artifact(entry["path"], f"{item['id']} manifest file")
+            manifest_path = root / entry["path"]
+            if not manifest_path.is_file():
+                raise ContractError(f"Missing {item['id']} Dataset Manifest file: {entry['path']}")
+            if raw_hash(manifest_path) != entry["sha256"]:
+                raise ContractError(f"{item['id']} Dataset Manifest hash mismatch: {entry['path']}")
 
     expected = []
     for command in bundle["commands"]:
@@ -791,7 +809,7 @@ def _validate_run_bundle(root, run_id=None):
                     "id": command["id"],
                     "seed": seed,
                     "command": [
-                        _replace_run_tokens(token, _run_substitutions(root, bundle["run_id"], seed, portable=True))
+                        _replace_run_tokens(token, _run_substitutions(root, bundle, seed, portable=True))
                         for token in command["command"]
                     ],
                     **artifact_paths,

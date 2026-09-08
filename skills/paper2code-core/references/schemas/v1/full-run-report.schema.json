@@ -58,7 +58,7 @@
       "additionalProperties": false,
       "required": ["class", "id", "message", "state", "return_target"],
       "properties": {
-        "class": {"enum": ["software", "scientific", "evidence", "environment"]},
+        "class": {"enum": ["software", "scientific", "result", "evidence", "environment"]},
         "id": {"type": "string", "minLength": 1},
         "message": {"type": "string", "minLength": 1},
         "state": {"enum": ["diagnosing", "needs_decision"]},

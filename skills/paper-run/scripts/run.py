@@ -26,7 +26,6 @@ GATE_SCHEMA_RELATIVE = "skills/paper2code-core/references/schemas/v1/full-run-ga
 REPORT_SCHEMA_RELATIVE = "skills/paper2code-core/references/schemas/v1/full-run-report.schema.json"
 RECORD_PREFIXES = (
     ".paper2code/",
-    "runs/",
     "validation/",
     "results/",
     "dossier/",
@@ -134,7 +133,7 @@ def code_snapshot(root):
 def verify_code_snapshot(root, bundle_value, gate=None):
     snapshot = code_snapshot(root)
     declared = bundle_value["code_revision"]
-    if declared["revision"] != "HEAD" and declared["revision"] != snapshot["revision"]:
+    if declared["revision"] != snapshot["revision"]:
         raise ContractError("Full Run bundle code revision differs from the current checkout")
     if declared["dirty"] or snapshot["dirty"]:
         paths = ", ".join(snapshot["dirty_paths"]) or "declared dirty state"
@@ -232,23 +231,23 @@ def check_capabilities(root, bundle_value, run_id):
     return report, report_path
 
 
-def normalized_substitutions(run_id, seed):
+def normalized_substitutions(run_id, seed, workers):
     return {
         "{root}": ".",
         "{run_dir}": f"runs/{run_id}",
         "{seed}": str(seed),
         "{python}": "{python}",
-        "{workers}": "1",
+        "{workers}": str(workers),
     }
 
 
-def runtime_substitutions(root, run_id, seed):
+def runtime_substitutions(root, run_id, seed, workers):
     return {
         "{root}": str(root),
         "{run_dir}": str(root / "runs" / run_id),
         "{seed}": str(seed),
         "{python}": sys.executable,
-        "{workers}": "1",
+        "{workers}": str(workers),
     }
 
 
@@ -266,7 +265,7 @@ def relative_artifact(root, value):
         raise ContractError(f"Full Run artifact escapes repository root: {value}") from exc
 
 
-def write_report(root, run_id, gate, bundle_value, started_at, command_results, failure):
+def write_report(root, run_id, gate, started_at, command_results, failure):
     report_path = root / "runs" / run_id / "report.yaml"
     artifacts = {}
     for result in command_results:
@@ -336,11 +335,6 @@ def command_approve(root, run_id, approver):
     if state.get("state") != CPU_STATE:
         raise ContractError(f"Full Run approval requires state {CPU_STATE}, got {state.get('state')}")
     verify_cpu_report(root)
-    bundle_path, bundle_value = bundle(root, run_id)
-    if bundle_value.get("status") not in ("prepared", "approved"):
-        raise ContractError("Full Run bundle is not in an approvable state")
-    bundle_value["status"] = "approved"
-    write_json(bundle_path, bundle_value)
     result = validate_bundle(root, run_id)
     _, bundle_value = bundle(root, run_id)
     snapshot = verify_code_snapshot(root, bundle_value)
@@ -396,21 +390,23 @@ def command_execute(root, run_id):
     started_at = _datetime.datetime.now(_datetime.timezone.utc).isoformat()
     command_results = []
     first_failure = None
+    execution = bundle_value["resolved_config"]["execution"]
+    device = execution["device"]
+    workers = execution["workers"]
     environment = os.environ.copy()
     environment.update(
         {
-            "PAPER2CODE_DEVICE": "cpu",
-            "PAPER2CODE_WORKERS": "1",
+            "PAPER2CODE_DEVICE": device,
+            "PAPER2CODE_WORKERS": str(workers),
             "PAPER2CODE_RUN_ID": run_id,
-            "CUDA_VISIBLE_DEVICES": "",
-            "OMP_NUM_THREADS": "1",
-            "MKL_NUM_THREADS": "1",
+            "OMP_NUM_THREADS": str(workers),
+            "MKL_NUM_THREADS": str(workers),
         }
     )
     for command_spec in bundle_value["commands"]:
         for seed in bundle_value["seeds"]:
-            runtime = runtime_substitutions(root, run_id, seed)
-            portable = normalized_substitutions(run_id, seed)
+            runtime = runtime_substitutions(root, run_id, seed, workers)
+            portable = normalized_substitutions(run_id, seed, workers)
             command = [replace_tokens(token, runtime) for token in command_spec["command"]]
             normalized_command = [replace_tokens(token, portable) for token in command_spec["command"]]
             log = relative_artifact(root, replace_tokens(command_spec["log"], runtime))
@@ -470,7 +466,7 @@ def command_execute(root, run_id):
                 }
 
     report, report_path = write_report(
-        root, run_id, gate, bundle_value, started_at, command_results, first_failure
+        root, run_id, gate, started_at, command_results, first_failure
     )
     if first_failure:
         route_failure(root, first_failure)

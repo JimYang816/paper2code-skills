@@ -180,8 +180,8 @@
         "references/schemas/v1/evidence-gate.schema.json": "9a7f4321d5348c4346bf613d5eaab8463fec28405965fa2a5aa66eac0f8be670",
         "references/schemas/v1/evidence.schema.json": "157f6a9bd7387aefdbb0d8dd6736314adb79af1d1d336de16badd7bd93f5b32e",
         "references/schemas/v1/full-run-gate.schema.json": "dae0e9048ecdd2e8756449513d78a01c451f60a0475b1dbe48104bcf3536da35",
-        "references/schemas/v1/full-run-report.schema.json": "61e99acdfcf8755c4974c84b124c282c724a2b05ff5c7bf6858c4fb5d060da99",
-        "references/schemas/v1/run.schema.json": "322d508fddf0da63ced5e04b843b8f622154acc6ab33a514b681da5bd8ea32e0",
+        "references/schemas/v1/full-run-report.schema.json": "c4f5ac02a598bc016bf51a8e53ed0c0f5fcfe3bbbf1c27164ab3970aab0a348c",
+        "references/schemas/v1/run.schema.json": "df0f1f2ad673118b7f7b145a731b957dd857116d011e1c7c51c824d579480df7",
         "references/schemas/v1/scope-matrix.schema.json": "e63f9e5ad278041e087ef8ec652e77f77a4631dce5f50a96e572265997febd22",
         "references/schemas/v1/specification-gate.schema.json": "38edda969aff78cf3fcd74c8660679d2b0f225f071d355e97410c355958e8f70",
         "references/schemas/v1/specification.schema.json": "fb68715f3bdfd54ac31e1659e4bad2d262a0e42aafa5101dd12acd2e20dd8a0f",
@@ -190,11 +190,11 @@
         "references/schemas/v1/validation.schema.json": "81a9810e44ad2e10c645b85d842eb2e3e2e0a7cb1b4b56dc9ca4c31ed160eee8",
         "references/schemas/v1/wayfinding.schema.json": "43071b8eb113c21b10b45b7bd107a13b6f2c17ddb66b19d79ab539bda9ffeac1",
         "references/skill-closure.md": "0e589e0dcf93ede33cbba0fbf4f23a15425e76a68dac4a42203aeb8762083a71",
-        "scripts/paper2code.py": "2c51f62852c919cdc25da83d34037b415e89c0e1f4aaede406e0b483f47fa941",
+        "scripts/paper2code.py": "ea48448912b69898c6ffabbb55de854c1c7aaa8299a4b773bff15505bd905ab1",
         "scripts/verify_closure.py": "0ba488ad8b08f39c117307890da50a392a235dca3f79f8161e2cbbd03300cd30",
         "SKILL.md": "22c1b6d3fbafc66bae21dcfdbe641bc0315f8e654c3c5b6c6018d6adf8fe3bfa"
       },
-      "content_hash": "b61f86130f6702d77a4d6bc9b94da1f751a7b649f382cf920b6c5a508f361991"
+      "content_hash": "52ecca089af1038a0400d5f4ff301534dc9a7692ea399969a85951d53b9d068b"
     },
     "research": {
       "classification": "unchanged",
@@ -411,11 +411,11 @@
         "paper2code-core"
       ],
       "files": {
-        "SKILL.md": "86fd5bb1e6b98a88a7e49a18d2405d3067f0ee7a97e9bbdbd1383de7092873d0",
-        "references/run-bundle.md": "cf86acdc18681d234ac890e25e1afaa88de357b84977e7a15ceba3618595f486",
-        "scripts/run.py": "14fe57ba10fe8068ce85d27639f0f27617a0c8a2d40597722877a8b661e9685e"
+        "SKILL.md": "97451d01731314035819147d3b8820bcb83a8ec727a6d2d6379fe2776f7db2b0",
+        "references/run-bundle.md": "4cd337a3db4bd5d32462ec1a142b0dcbc373d4fe48ae2c990162784a8599cb00",
+        "scripts/run.py": "865393a5a927723da3ce7e9fb9d0de7bc029de4304c69f98db60562dffb51c6a"
       },
-      "content_hash": "5abb93abea1bfd50309de420e6ed0c3c1104b05a2c45bb8c3f7f660b230dce39"
+      "content_hash": "9f26f5030e1e7c860abbf7bac75dd132655567b2550668c216e088f772ed5fa9"
     }
   },
   "distribution_files": {

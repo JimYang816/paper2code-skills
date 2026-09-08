@@ -1,7 +1,6 @@
 """Exercise portable Full Run preparation, approval, execution, and import."""
 
 import json
-import shutil
 import subprocess
 import sys
 import unittest
@@ -78,7 +77,7 @@ def make_cpu_contract(target):
     )
 
 
-def make_bundle(target, capability="{python}"):
+def make_bundle(target, capability="{python}", revision=None):
     dataset = target / "runs/fixture/datasets/input.json"
     dataset.parent.mkdir(parents=True, exist_ok=True)
     dataset.write_text('{"value": 3}\n', encoding="utf-8")
@@ -105,9 +104,9 @@ def make_bundle(target, capability="{python}"):
         "status": "prepared",
         "resolved_config": {
             "experiment": "portable-fixture",
-            "workers": 1,
+            "execution": {"device": "cpu", "workers": 1},
         },
-        "code_revision": {"revision": "HEAD", "dirty": False},
+        "code_revision": {"revision": revision, "dirty": False},
         "environment": {
             "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
             "platform": sys.platform,
@@ -123,6 +122,10 @@ def make_bundle(target, capability="{python}"):
                 "source": "local deterministic fixture",
                 "license": "MIT",
                 "sha256": dataset_hash,
+                "manifest": {
+                    "expected_files": [{"path": "runs/fixture/datasets/input.json", "sha256": dataset_hash}],
+                    "preparation_recipe": "Write the deterministic JSON fixture.",
+                },
             }
         ],
         "seeds": [3, 5, 7],
@@ -181,11 +184,13 @@ class FullRunTests(unittest.TestCase):
             capture_output=True,
         )
         self.assertEqual(0, completed.returncode, completed.stderr or completed.stdout)
-        make_bundle(target, capability)
+        (target / "implementation.py").write_text("# committed implementation\n", encoding="utf-8")
         subprocess.run(["git", "-C", str(target), "config", "user.email", "fixture@example.com"], check=True)
         subprocess.run(["git", "-C", str(target), "config", "user.name", "Fixture"], check=True)
         subprocess.run(["git", "-C", str(target), "add", "."], check=True)
         subprocess.run(["git", "-C", str(target), "commit", "-m", "fixture"], check=True, capture_output=True)
+        revision = subprocess.check_output(["git", "-C", str(target), "rev-parse", "HEAD"], text=True).strip()
+        make_bundle(target, capability, revision)
         return target
 
     def run_tool(self, target, *args, expected=0):
@@ -211,7 +216,6 @@ class FullRunTests(unittest.TestCase):
         self.assertEqual("researcher@example.com", gate["approved_by"])
         self.assertIn("bundle_sha256", gate)
         self.assertIn("cpu_validation_report_sha256", gate)
-        self.assertEqual("approved", json.loads((target / "runs/fixture/bundle.yaml").read_text())["status"])
 
     def test_execute_writes_logs_metrics_outputs_and_completes(self):
         target = self.scaffold()
@@ -223,7 +227,14 @@ class FullRunTests(unittest.TestCase):
         report = json.loads((target / "runs/fixture/report.yaml").read_text())
         self.assertEqual("passed", report["status"])
         self.assertEqual(3, len(report["commands"]))
-        self.assertTrue(all((target / path).is_file() for path in report["artifacts"]))
+        expected_artifacts = sorted(
+            [
+                *[f"runs/fixture/logs/seed-{seed}.log" for seed in (3, 5, 7)],
+                *[f"runs/fixture/metrics/metric-{seed}.json" for seed in (3, 5, 7)],
+                *[f"runs/fixture/outputs/result-{seed}.json" for seed in (3, 5, 7)],
+            ]
+        )
+        self.assertEqual(expected_artifacts, sorted(report["artifacts"]))
         self.run_tool(target, "verify")
 
     def test_stale_approval_refuses_execution(self):
@@ -231,7 +242,7 @@ class FullRunTests(unittest.TestCase):
         self.run_tool(target, "approve", "--approver", "researcher@example.com")
         bundle_path = target / "runs/fixture/bundle.yaml"
         bundle = json.loads(bundle_path.read_text())
-        bundle["resolved_config"]["workers"] = 2
+        bundle["resolved_config"]["execution"]["workers"] = 2
         write_json(bundle_path, bundle)
 
         result = self.run_tool(target, "execute", expected=2)
@@ -275,6 +286,36 @@ class FullRunTests(unittest.TestCase):
 
         self.assertIn("Missing Full Run dataset", result["error"])
         self.assertFalse((target / "runs/fixture/report.yaml").exists())
+
+    def test_missing_seed_is_rejected_during_preparation(self):
+        target = self.scaffold()
+        bundle_path = target / "runs/fixture/bundle.yaml"
+        bundle = json.loads(bundle_path.read_text())
+        bundle["seeds"] = []
+        write_json(bundle_path, bundle)
+
+        result = self.run_tool(target, "prepare", expected=2)
+
+        self.assertIn("needs at least 1 items", result["error"])
+
+    def test_dirty_code_refuses_execution(self):
+        target = self.scaffold()
+        self.run_tool(target, "approve", "--approver", "researcher@example.com")
+        (target / "implementation.py").write_text("# changed after approval\n", encoding="utf-8")
+
+        result = self.run_tool(target, "execute", expected=2)
+
+        self.assertIn("clean code checkout", result["error"])
+
+    def test_incomplete_log_refuses_verification(self):
+        target = self.scaffold()
+        self.run_tool(target, "approve", "--approver", "researcher@example.com")
+        self.run_tool(target, "execute")
+        (target / "runs/fixture/logs/seed-3.log").unlink()
+
+        result = self.run_tool(target, "verify", expected=2)
+
+        self.assertIn("references missing artifact", result["error"])
 
 
 if __name__ == "__main__":

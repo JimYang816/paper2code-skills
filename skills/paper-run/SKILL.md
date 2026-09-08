@@ -14,8 +14,11 @@ seeds, commands, and the log, metric, and output paths each command must leave.
 
 Create `runs/<run-id>/bundle.yaml` as JSON-compatible YAML using the schema
 under `skills/paper2code-core/references/schemas/v1/run.schema.json`. Dataset
-paths are repository-relative and commands are argument arrays. Commands may
-use `{python}`, `{root}`, `{run_dir}`, `{seed}`, and `{workers}` substitutions.
+paths are repository-relative and each Dataset Manifest lists its expected
+files, hashes, and preparation recipe. Set `resolved_config.execution.device`
+and `resolved_config.execution.workers` to the approved execution settings.
+Commands are argument arrays and may use `{python}`, `{root}`, `{run_dir}`,
+`{seed}`, and `{workers}` substitutions.
 Declare every executable or locked dependency in `environment.capabilities` or
 `environment.dependencies`; the runner reports missing capabilities and never
 installs them.
