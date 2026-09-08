@@ -46,8 +46,12 @@ SPEC_SCHEMA = SCHEMAS_DIR / "specification.schema.json"
 SPEC_GATE_SCHEMA = SCHEMAS_DIR / "specification-gate.schema.json"
 VALIDATION_SCHEMA = SCHEMAS_DIR / "validation.schema.json"
 VALIDATION_REPORT_SCHEMA = SCHEMAS_DIR / "validation-report.schema.json"
+RUN_SCHEMA = SCHEMAS_DIR / "run.schema.json"
+FULL_RUN_GATE_SCHEMA = SCHEMAS_DIR / "full-run-gate.schema.json"
+FULL_RUN_REPORT_SCHEMA = SCHEMAS_DIR / "full-run-report.schema.json"
 VALIDATION_KINDS = {"data", "model", "baseline", "metric", "reporting"}
 VALIDATION_CHECKS = ("invariants", "units", "shapes", "gradients")
+RUN_FAILURE_CLASSES = {"software", "scientific", "evidence", "environment"}
 PLACEHOLDER_RE = re.compile(r"\b(TODO|TBD|FIXME|PLACEHOLDER)\b", flags=re.IGNORECASE)
 UNRESOLVED_RE = re.compile(r"\b(UNKNOWN|TBD|TODO|FIXME|PLACEHOLDER)\b", flags=re.IGNORECASE)
 
@@ -690,6 +694,230 @@ def command_validate_cpu_report(root):
     }
 
 
+def raw_hash(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _find_run_bundle(root, run_id=None):
+    root = root.resolve()
+    if run_id:
+        candidates = [root / "runs" / run_id / "bundle.yaml"]
+    else:
+        runs = root / "runs"
+        candidates = sorted(runs.glob("*/bundle.yaml")) if runs.is_dir() else []
+    if len(candidates) != 1:
+        if not candidates:
+            raise ContractError("Missing runs/<run-id>/bundle.yaml")
+        raise ContractError("Multiple Full Run bundles found; pass --run-id")
+    path = candidates[0]
+    bundle = load_json(path)
+    return path, bundle
+
+
+def _run_substitutions(root, run_id, seed, portable=False):
+    run_dir = f"runs/{run_id}" if portable else str(root / "runs" / run_id)
+    root_value = "." if portable else str(root)
+    return {
+        "{root}": root_value,
+        "{run_dir}": run_dir,
+        "{seed}": str(seed),
+        "{python}": "{python}" if portable else sys.executable,
+        "{workers}": "1",
+    }
+
+
+def _replace_run_tokens(value, substitutions):
+    for token, replacement in substitutions.items():
+        value = value.replace(token, replacement)
+    return value
+
+
+def _validate_run_relative(relative, label):
+    _validate_relative_artifact(relative, label)
+    if "{" in relative or "}" in relative:
+        raise ContractError(f"{label} contains an unresolved substitution: {relative}")
+
+
+def _run_artifact_paths(root, bundle, command, seed, portable=True):
+    substitutions = _run_substitutions(root, bundle["run_id"], seed, portable=portable)
+    values = {
+        "log": _replace_run_tokens(command["log"], substitutions),
+        "metrics": [_replace_run_tokens(item, substitutions) for item in command["metrics"]],
+        "outputs": [_replace_run_tokens(item, substitutions) for item in command["outputs"]],
+    }
+    for kind, paths in values.items():
+        if isinstance(paths, str):
+            paths = [paths]
+        for path in paths:
+            _validate_run_relative(path, f"{command['id']} {kind} artifact")
+    return values
+
+
+def _validate_run_bundle(root, run_id=None):
+    root = root.resolve()
+    path, bundle = _find_run_bundle(root, run_id)
+    validate_schema_file(bundle, RUN_SCHEMA, "runs/<run-id>/bundle.yaml")
+    if path.parent.name != bundle["run_id"]:
+        raise ContractError("Full Run directory name must match bundle run_id")
+    if not bundle["resolved_config"]:
+        raise ContractError("Full Run resolved_config must not be empty")
+
+    dataset_ids = [item["id"] for item in bundle["datasets"]]
+    ensure_unique_ids(bundle["datasets"], "Full Run datasets")
+    if len(bundle["seeds"]) != len(set(bundle["seeds"])):
+        raise ContractError("Full Run seeds must be unique")
+    capabilities = [item["id"] for item in bundle["environment"]["capabilities"]]
+    if len(capabilities) != len(set(capabilities)):
+        raise ContractError("Full Run capabilities must be unique")
+    ensure_unique_ids(bundle["commands"], "Full Run commands")
+
+    for item in bundle["datasets"]:
+        _validate_relative_artifact(item["path"], f"{item['id']} dataset")
+        dataset_path = root / item["path"]
+        if not dataset_path.is_file():
+            raise ContractError(f"Missing Full Run dataset: {item['path']}")
+        actual = raw_hash(dataset_path)
+        if actual != item["sha256"]:
+            raise ContractError(f"Full Run dataset hash mismatch: {item['path']}")
+
+    expected = []
+    for command in bundle["commands"]:
+        if any("\u0000" in token for token in command["command"]):
+            raise ContractError(f"Full Run command contains a NUL byte: {command['id']}")
+        for seed in bundle["seeds"]:
+            artifact_paths = _run_artifact_paths(root, bundle, command, seed, portable=True)
+            expected.append(
+                {
+                    "id": command["id"],
+                    "seed": seed,
+                    "command": [
+                        _replace_run_tokens(token, _run_substitutions(root, bundle["run_id"], seed, portable=True))
+                        for token in command["command"]
+                    ],
+                    **artifact_paths,
+                }
+            )
+
+    return {
+        "valid": True,
+        "run_id": bundle["run_id"],
+        "bundle_path": path.relative_to(root).as_posix(),
+        "bundle_sha256": canonical_hash(path),
+        "dataset_ids": dataset_ids,
+        "seeds": bundle["seeds"],
+        "commands": len(expected),
+        "expected": expected,
+    }, bundle
+
+
+def command_validate_run_bundle(root, run_id=None):
+    result, _bundle = _validate_run_bundle(root, run_id)
+    return result
+
+
+def command_validate_full_run_gate(root):
+    root = root.resolve()
+    path = root / ".paper2code/gates/full-run-gate.yaml"
+    if not path.is_file():
+        raise ContractError("Missing .paper2code/gates/full-run-gate.yaml")
+    gate = load_json(path)
+    validate_schema_file(gate, FULL_RUN_GATE_SCHEMA, ".paper2code/gates/full-run-gate.yaml")
+    bundle_result, _bundle = _validate_run_bundle(root, gate["run_id"])
+    if gate["bundle_path"] != bundle_result["bundle_path"]:
+        raise ContractError("Full Run Gate points to a different bundle path")
+    if gate["bundle_sha256"] != bundle_result["bundle_sha256"]:
+        raise ContractError("stale Full Run approval: bundle changed")
+    report_path = root / gate["cpu_validation_report_path"]
+    if not report_path.is_file():
+        raise ContractError("Full Run Gate references a missing CPU Validation Report")
+    if gate["cpu_validation_report_sha256"] != canonical_hash(report_path):
+        raise ContractError("stale Full Run approval: CPU Validation Report changed")
+    for name, relative in {
+        "run": "skills/paper2code-core/references/schemas/v1/run.schema.json",
+        "gate": "skills/paper2code-core/references/schemas/v1/full-run-gate.schema.json",
+        "report": "skills/paper2code-core/references/schemas/v1/full-run-report.schema.json",
+    }.items():
+        schema_path = root / relative
+        if not schema_path.is_file() or gate["schemas"][name] != raw_hash(schema_path):
+            raise ContractError(f"Full Run Gate schema identity is stale: {name}")
+    return {
+        "valid": True,
+        "gate": ".paper2code/gates/full-run-gate.yaml",
+        "run_id": gate["run_id"],
+        "bundle_sha256": gate["bundle_sha256"],
+        "approval_sha256": canonical_hash(path),
+        "code_revision": gate["code_revision"],
+    }
+
+
+def command_validate_full_run_report(root, run_id=None):
+    root = root.resolve()
+    gate_result = command_validate_full_run_gate(root)
+    selected_id = run_id or gate_result["run_id"]
+    bundle_result, bundle = _validate_run_bundle(root, selected_id)
+    if selected_id != gate_result["run_id"]:
+        raise ContractError("Full Run report run_id differs from the approved run")
+    report_path = root / "runs" / selected_id / "report.yaml"
+    if not report_path.is_file():
+        raise ContractError("Missing runs/<run-id>/report.yaml")
+    report = load_json(report_path)
+    validate_schema_file(report, FULL_RUN_REPORT_SCHEMA, "runs/<run-id>/report.yaml")
+    if report["run_id"] != selected_id:
+        raise ContractError("Full Run report run_id differs from its bundle")
+    if report["bundle_sha256"] != bundle_result["bundle_sha256"]:
+        raise ContractError("Full Run report is stale: bundle changed")
+    if report["approval_sha256"] != gate_result["approval_sha256"]:
+        raise ContractError("Full Run report is stale: approval changed")
+    if report["code_revision"] != gate_result["code_revision"]:
+        raise ContractError("Full Run report code revision differs from approval")
+
+    expected = bundle_result["expected"]
+    expected_keys = {(item["id"], item["seed"]): item for item in expected}
+    actual_keys = {(item["id"], item["seed"]) for item in report["commands"]}
+    if actual_keys != set(expected_keys):
+        raise ContractError("Full Run report does not cover every command and seed")
+    for result in report["commands"]:
+        wanted = expected_keys[(result["id"], result["seed"])]
+        if result["command"] != wanted["command"]:
+            raise ContractError(f"Full Run report command differs for {result['id']} seed {result['seed']}")
+        if result["log"] != wanted["log"] or result["metrics"] != wanted["metrics"] or result["outputs"] != wanted["outputs"]:
+            raise ContractError(f"Full Run report artifacts differ for {result['id']} seed {result['seed']}")
+
+    expected_artifacts = {
+        path
+        for result in expected
+        for path in [result["log"], *result["metrics"], *result["outputs"]]
+    }
+    if report["status"] == "passed":
+        if report["failure"] is not None:
+            raise ContractError("Passed Full Run report cannot contain a failure")
+        if any(item["status"] != "passed" or item["exit_code"] != 0 for item in report["commands"]):
+            raise ContractError("Passed Full Run report contains a failed command")
+        if set(report["artifacts"]) != expected_artifacts:
+            raise ContractError("Passed Full Run report does not hash every expected artifact")
+    elif report["failure"] is None:
+        raise ContractError("Failed Full Run report must classify a failure")
+
+    for relative, expected_hash in report["artifacts"].items():
+        _validate_relative_artifact(relative, "Full Run report artifact")
+        artifact = root / relative
+        if not artifact.is_file():
+            raise ContractError(f"Full Run report references missing artifact: {relative}")
+        actual_hash = raw_hash(artifact)
+        if actual_hash != expected_hash:
+            raise ContractError(f"Full Run report has a stale artifact hash: {relative}")
+
+    return {
+        "valid": True,
+        "status": report["status"],
+        "execution_mode": report["execution_mode"],
+        "run_id": selected_id,
+        "artifacts": sorted(report["artifacts"]),
+        "bundle": bundle_result,
+        "environment": bundle["environment"],
+    }
+
+
 def transition_allowed(current, target, return_target):
     if target in EXCEPTION_STATES:
         return current in NORMAL_STATES and return_target == current
@@ -719,6 +947,13 @@ def command_check_transition(state_file, target, return_target):
             command_validate_cpu_report(state_file.resolve().parent.parent)
         except ContractError as exc:
             raise ContractError(f"CPU Validation Report required before cpu_validated: {exc}") from exc
+    if target == "full_run_complete":
+        try:
+            report_result = command_validate_full_run_report(state_file.resolve().parent.parent)
+            if report_result["status"] != "passed":
+                raise ContractError("Full Run Report is not a passed report")
+        except ContractError as exc:
+            raise ContractError(f"Full Run Report required before full_run_complete: {exc}") from exc
     return {
         "legal": True,
         "from": current,
@@ -782,6 +1017,24 @@ def build_parser():
         cpu_report = commands.add_parser(name, help="validate the CPU Validation Report")
         cpu_report.add_argument("--root", type=Path, required=True)
         cpu_report.set_defaults(handler=lambda args: command_validate_cpu_report(args.root))
+
+    run_bundle = commands.add_parser("validate-run-bundle", help="validate a portable Full Run bundle")
+    run_bundle.add_argument("--root", type=Path, required=True)
+    run_bundle.add_argument("--run-id")
+    run_bundle.set_defaults(
+        handler=lambda args: command_validate_run_bundle(args.root, args.run_id)
+    )
+
+    run_gate = commands.add_parser("validate-full-run-gate", help="validate a Full Run approval")
+    run_gate.add_argument("--root", type=Path, required=True)
+    run_gate.set_defaults(handler=lambda args: command_validate_full_run_gate(args.root))
+
+    run_report = commands.add_parser("validate-full-run-report", help="validate a completed Full Run")
+    run_report.add_argument("--root", type=Path, required=True)
+    run_report.add_argument("--run-id")
+    run_report.set_defaults(
+        handler=lambda args: command_validate_full_run_report(args.root, args.run_id)
+    )
 
     hash_command = commands.add_parser("canonical-hash", help="hash canonical JSON")
     hash_command.add_argument("document", type=Path)

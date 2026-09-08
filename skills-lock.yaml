@@ -20,7 +20,8 @@
     "paper-grilling",
     "paper-wayfinding",
     "paper-spec",
-    "paper-validation"
+    "paper-validation",
+    "paper-run"
   ],
   "skills": {
     "code-review": {
@@ -172,12 +173,15 @@
         "assets/reproduction/dossier/scope-matrix.yaml": "dc15c01a732d06950d7a5c07f03b2bc39ca4104544ad513fb145a01ac8987d4b",
         "references/github-graph.md": "139f824b64f1aec6c60722ffb7b0c9c4962fd09db1bdb8fbf3b48a839d5b4fd0",
         "references/lifecycle.md": "a36c25dbfebf4551c6459bab3400d810e987e59271267718b75f22aebafdef3b",
-        "references/repository-layout.md": "11d7c93be6aeadf29c691cfa008a9d0c4fce7080f453e3cd83cea8b65bc8c899",
+        "references/repository-layout.md": "fca6564c5c2945bec8ecb8e35d01b1e6f6b24aa7679b715ce14db1c67db27194",
         "references/schemas/v1/ambiguities.schema.json": "a0515ef032e0f5715f81fb75a89203d35e055dac6c9b8db7c8eebd20c6e0b401",
         "references/schemas/v1/capability-report.schema.json": "5e6d42f8ae8a7e631e0621083355bc16de44e75560ba65e90c38d9d66bc8983a",
         "references/schemas/v1/evidence-audit.schema.json": "9cf10cd5f14f42307edf0c7e0701e0a02683969ed1ac7bfd8a53412ad77820e8",
         "references/schemas/v1/evidence-gate.schema.json": "9a7f4321d5348c4346bf613d5eaab8463fec28405965fa2a5aa66eac0f8be670",
         "references/schemas/v1/evidence.schema.json": "157f6a9bd7387aefdbb0d8dd6736314adb79af1d1d336de16badd7bd93f5b32e",
+        "references/schemas/v1/full-run-gate.schema.json": "dae0e9048ecdd2e8756449513d78a01c451f60a0475b1dbe48104bcf3536da35",
+        "references/schemas/v1/full-run-report.schema.json": "61e99acdfcf8755c4974c84b124c282c724a2b05ff5c7bf6858c4fb5d060da99",
+        "references/schemas/v1/run.schema.json": "322d508fddf0da63ced5e04b843b8f622154acc6ab33a514b681da5bd8ea32e0",
         "references/schemas/v1/scope-matrix.schema.json": "e63f9e5ad278041e087ef8ec652e77f77a4631dce5f50a96e572265997febd22",
         "references/schemas/v1/specification-gate.schema.json": "38edda969aff78cf3fcd74c8660679d2b0f225f071d355e97410c355958e8f70",
         "references/schemas/v1/specification.schema.json": "fb68715f3bdfd54ac31e1659e4bad2d262a0e42aafa5101dd12acd2e20dd8a0f",
@@ -186,11 +190,11 @@
         "references/schemas/v1/validation.schema.json": "81a9810e44ad2e10c645b85d842eb2e3e2e0a7cb1b4b56dc9ca4c31ed160eee8",
         "references/schemas/v1/wayfinding.schema.json": "43071b8eb113c21b10b45b7bd107a13b6f2c17ddb66b19d79ab539bda9ffeac1",
         "references/skill-closure.md": "0e589e0dcf93ede33cbba0fbf4f23a15425e76a68dac4a42203aeb8762083a71",
-        "scripts/paper2code.py": "876efd233cf7a8c5f1fcd2fc4aa48698b5dd40037d6c17fbeefb9e31776c9a1b",
+        "scripts/paper2code.py": "2c51f62852c919cdc25da83d34037b415e89c0e1f4aaede406e0b483f47fa941",
         "scripts/verify_closure.py": "0ba488ad8b08f39c117307890da50a392a235dca3f79f8161e2cbbd03300cd30",
-        "SKILL.md": "060e1cd4b0fdf660e469fed0c706fef26af7016f3db8b95748cbdf5a31b354ab"
+        "SKILL.md": "22c1b6d3fbafc66bae21dcfdbe641bc0315f8e654c3c5b6c6018d6adf8fe3bfa"
       },
-      "content_hash": "e14bdab0db07003c8e21a9fab85ed1c6646385efa71b9ca90df999939997bf65"
+      "content_hash": "b61f86130f6702d77a4d6bc9b94da1f751a7b649f382cf920b6c5a508f361991"
     },
     "research": {
       "classification": "unchanged",
@@ -395,6 +399,23 @@
         "SKILL.md": "4af289b53f2e88d8c500b128fb487bfc6086fba453028d9a53ab9d26f45c7d68"
       },
       "content_hash": "75848356822b2fc49d57221c31e1116e37bf8414bcddc15b8c8e870a51bbc5c1"
+    },
+    "paper-run": {
+      "classification": "new",
+      "origin": {
+        "repository": "https://github.com/JimYang816/paper2code-skills",
+        "path": "skills/paper-run"
+      },
+      "license": "MIT",
+      "dependencies": [
+        "paper2code-core"
+      ],
+      "files": {
+        "SKILL.md": "86fd5bb1e6b98a88a7e49a18d2405d3067f0ee7a97e9bbdbd1383de7092873d0",
+        "references/run-bundle.md": "cf86acdc18681d234ac890e25e1afaa88de357b84977e7a15ceba3618595f486",
+        "scripts/run.py": "14fe57ba10fe8068ce85d27639f0f27617a0c8a2d40597722877a8b661e9685e"
+      },
+      "content_hash": "5abb93abea1bfd50309de420e6ed0c3c1104b05a2c45bb8c3f7f660b230dce39"
     }
   },
   "distribution_files": {

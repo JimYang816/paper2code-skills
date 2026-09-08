@@ -6,10 +6,11 @@ the new `paper2code-core` deterministic support skill, the new
 `setup-paper2code` scaffold skill, the new `extract-paper2code` extraction
 Stage Skill, the new `paper-grilling` Evidence Gate Stage Skill, and the new
 `paper-wayfinding` decision-frontier Stage Skill, and the new `paper-spec`
-Specification Gate Stage Skill, and the new `paper-validation` CPU Gate Stage
-Skill. The CPU stage demonstrates the independent-reference and deterministic
-reduced-run boundary; later Full Run and evaluation stages remain subsequent
-implementation work.
+Specification Gate Stage Skill, the new `paper-validation` CPU Gate Stage
+Skill, and the new `paper-run` Full Run Stage Skill. The CPU stage demonstrates
+the independent-reference and deterministic reduced-run boundary; the Full Run
+stage carries that boundary into an approved, hash-bound, locally executable or
+externally importable bundle.
 
 With Python 3.9 or later and no third-party packages:
 

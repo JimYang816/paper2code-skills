@@ -25,6 +25,9 @@ Evidence Gate, and `validate-scope-matrix --root .`,
 to validate the specification stage artifacts and approval record. The CPU
 Gate stage adds `validate-cpu-contract --root .` and
 `validate-cpu-report --root .`; the latter refuses a stale or failed report
-before the `cpu_validated` transition. Stage skills own the approval
-conversation and state transition; these commands only perform deterministic
-checks.
+before the `cpu_validated` transition. The Full Run stage adds
+`validate-run-bundle --root .`, `validate-full-run-gate --root .`, and
+`validate-full-run-report --root .`; these commands share the same contract
+for local and imported bundles and refuse stale hashes or missing artifacts.
+Stage skills own the approval conversation and state transition; these commands
+only perform deterministic checks.

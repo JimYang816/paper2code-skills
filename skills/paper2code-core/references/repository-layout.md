@@ -22,6 +22,9 @@ validation/
   references/
   reports/
 runs/
+  <run-id>/
+    bundle.yaml
+    report.yaml
 results/
 prototypes/
 skills/

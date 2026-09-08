@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paper2code.local/schemas/v1/full-run-gate.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "gate",
+    "transition",
+    "approved_at",
+    "approved_by",
+    "run_id",
+    "bundle_path",
+    "bundle_sha256",
+    "cpu_validation_report_path",
+    "cpu_validation_report_sha256",
+    "code_revision",
+    "schemas"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "gate": {"const": "full_run"},
+    "transition": {"const": "cpu_validated -> full_run_approved"},
+    "approved_at": {"type": "string", "minLength": 1},
+    "approved_by": {"type": "string", "minLength": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "bundle_path": {"type": "string", "minLength": 1},
+    "bundle_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "cpu_validation_report_path": {"type": "string", "minLength": 1},
+    "cpu_validation_report_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "code_revision": {"type": "string", "pattern": "^[0-9a-f]{7,64}$"},
+    "schemas": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run", "gate", "report"],
+      "properties": {
+        "run": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "gate": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "report": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}
