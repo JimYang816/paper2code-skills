@@ -44,6 +44,10 @@ GATE_SCHEMA = SCHEMAS_DIR / "evidence-gate.schema.json"
 SCOPE_SCHEMA = SCHEMAS_DIR / "scope-matrix.schema.json"
 SPEC_SCHEMA = SCHEMAS_DIR / "specification.schema.json"
 SPEC_GATE_SCHEMA = SCHEMAS_DIR / "specification-gate.schema.json"
+VALIDATION_SCHEMA = SCHEMAS_DIR / "validation.schema.json"
+VALIDATION_REPORT_SCHEMA = SCHEMAS_DIR / "validation-report.schema.json"
+VALIDATION_KINDS = {"data", "model", "baseline", "metric", "reporting"}
+VALIDATION_CHECKS = ("invariants", "units", "shapes", "gradients")
 PLACEHOLDER_RE = re.compile(r"\b(TODO|TBD|FIXME|PLACEHOLDER)\b", flags=re.IGNORECASE)
 UNRESOLVED_RE = re.compile(r"\b(UNKNOWN|TBD|TODO|FIXME|PLACEHOLDER)\b", flags=re.IGNORECASE)
 
@@ -533,6 +537,159 @@ def command_validate_specification_gate(root):
     }
 
 
+def _validate_relative_artifact(relative, label):
+    path = Path(relative)
+    if path.is_absolute() or ".." in path.parts:
+        raise ContractError(f"{label} must be a relative path: {relative}")
+
+
+def _validate_validation_contract(document, root):
+    validate_schema_file(document, VALIDATION_SCHEMA, "validation/validation.yaml")
+    if has_unresolved_value(document):
+        raise ContractError("validation/validation.yaml contains unresolved placeholders")
+
+    math_items = document["critical_math"]
+    ensure_unique_ids(math_items, "validation/validation.yaml critical_math")
+    for item in math_items:
+        reference = item["reference"]
+        _validate_relative_artifact(reference, "critical_math reference")
+        if not reference.startswith("validation/references/"):
+            raise ContractError(
+                f"critical math reference must be under validation/references/: {reference}"
+            )
+        if not (root / reference).is_file():
+            raise ContractError(f"Missing independent numerical reference: {reference}")
+        checks = item["checks"]
+        not_applicable = set(checks["not_applicable"])
+        if len(not_applicable) != len(checks["not_applicable"]):
+            raise ContractError(f"Duplicate not_applicable check in {item['id']}")
+        all_ids = []
+        for check in VALIDATION_CHECKS:
+            values = checks[check]
+            if check in not_applicable:
+                if values:
+                    raise ContractError(
+                        f"{item['id']} marks {check} not applicable but declares checks"
+                    )
+            elif not values:
+                raise ContractError(
+                    f"{item['id']} needs an applicable {check} check or marks it not_applicable"
+                )
+            all_ids.extend(values)
+        if len(all_ids) != len(set(all_ids)):
+            raise ContractError(f"{item['id']} contains duplicate check identifiers")
+
+    paths = document["paths"]
+    ensure_unique_ids(paths, "validation/validation.yaml paths")
+    kinds = {item["kind"] for item in paths}
+    missing_kinds = sorted(VALIDATION_KINDS - kinds)
+    if missing_kinds:
+        raise ContractError(
+            "validation/validation.yaml is missing required pipeline paths: "
+            + ", ".join(missing_kinds)
+        )
+    for item in paths:
+        for artifact in item["artifacts"]:
+            _validate_relative_artifact(artifact, f"{item['id']} artifact")
+
+    return {
+        "valid": True,
+        "critical_math": len(math_items),
+        "paths": len(paths),
+        "path_kinds": sorted(kinds),
+        "artifacts": ["validation/validation.yaml"],
+    }
+
+
+def command_validate_cpu_contract(root):
+    root = root.resolve()
+    path = root / "validation/validation.yaml"
+    if not path.is_file():
+        raise ContractError("Missing validation/validation.yaml")
+    return _validate_validation_contract(load_json(path), root)
+
+
+def command_validate_cpu_report(root):
+    root = root.resolve()
+    contract_result = command_validate_cpu_contract(root)
+    contract = load_json(root / "validation/validation.yaml")
+    path = root / "validation/reports/cpu-validation.yaml"
+    if not path.is_file():
+        raise ContractError("Missing validation/reports/cpu-validation.yaml")
+    report = load_json(path)
+    validate_schema_file(report, VALIDATION_REPORT_SCHEMA, "validation/reports/cpu-validation.yaml")
+    if report["contract_sha256"] != canonical_hash(root / "validation/validation.yaml"):
+        raise ContractError("CPU Validation Report is stale: validation contract changed")
+    if report["deterministic"] != contract["deterministic"]:
+        raise ContractError("CPU Validation Report deterministic settings differ from contract")
+
+    expected_math = {item["id"] for item in contract["critical_math"]}
+    actual_math = {item["id"] for item in report["math"]}
+    ensure_unique_ids(report["math"], "CPU Validation Report math results")
+    if actual_math != expected_math:
+        raise ContractError("CPU Validation Report does not cover every critical math reference")
+    expected_paths = {item["id"] for item in contract["paths"]}
+    actual_paths = {item["id"] for item in report["paths"]}
+    ensure_unique_ids(report["paths"], "CPU Validation Report path results")
+    if actual_paths != expected_paths:
+        raise ContractError("CPU Validation Report does not cover every pipeline path")
+
+    expected_math_items = {item["id"]: item for item in contract["critical_math"]}
+    for result in report["math"]:
+        expected = expected_math_items[result["id"]]
+        for group in VALIDATION_CHECKS:
+            required = set(expected["checks"][group])
+            if not required:
+                continue
+            observed = result["checks"].get(group)
+            if not isinstance(observed, list) or not required <= set(observed):
+                missing = sorted(required - set(observed or []))
+                raise ContractError(
+                    f"CPU Validation Report is missing {group} checks for {result['id']}: "
+                    + ", ".join(missing)
+                )
+
+    expected_path_items = {item["id"]: item for item in contract["paths"]}
+    for result in report["paths"]:
+        expected = expected_path_items[result["id"]]
+        if result["kind"] != expected["kind"]:
+            raise ContractError(f"CPU Validation Report has the wrong kind for {result['id']}")
+        if set(result["artifacts"]) != set(expected["artifacts"]):
+            raise ContractError(
+                f"CPU Validation Report has the wrong artifacts for {result['id']}"
+            )
+
+    if report["status"] == "passed":
+        if report["state"] != "cpu_validated" or report["return_target"] is not None:
+            raise ContractError("Passed CPU Validation Report must target cpu_validated")
+        if report["failure"] is not None:
+            raise ContractError("Passed CPU Validation Report cannot contain a failure")
+        if any(item["status"] != "passed" for item in [*report["math"], *report["paths"]]):
+            raise ContractError("Passed CPU Validation Report contains a failed check")
+    else:
+        if report["failure"] is None:
+            raise ContractError("Failed CPU Validation Report must classify a failure")
+        if report["state"] == "cpu_validated":
+            raise ContractError("Failed CPU Validation Report cannot target cpu_validated")
+
+    for relative, expected_hash in report["artifacts"].items():
+        _validate_relative_artifact(relative, "CPU Validation Report artifact")
+        artifact = root / relative
+        if not artifact.is_file():
+            raise ContractError(f"CPU Validation Report references missing artifact: {relative}")
+        actual_hash = hashlib.sha256(artifact.read_bytes()).hexdigest()
+        if expected_hash != actual_hash:
+            raise ContractError(f"CPU Validation Report has a stale artifact hash: {relative}")
+    return {
+        "valid": True,
+        "status": report["status"],
+        "state": report["state"],
+        "failure": report["failure"],
+        "contract": contract_result,
+        "artifacts": ["validation/reports/cpu-validation.yaml", *sorted(report["artifacts"])],
+    }
+
+
 def transition_allowed(current, target, return_target):
     if target in EXCEPTION_STATES:
         return current in NORMAL_STATES and return_target == current
@@ -557,6 +714,11 @@ def command_check_transition(state_file, target, return_target):
         if effective_return:
             message += f" (return target {effective_return})"
         raise ContractError(message)
+    if target == "cpu_validated":
+        try:
+            command_validate_cpu_report(state_file.resolve().parent.parent)
+        except ContractError as exc:
+            raise ContractError(f"CPU Validation Report required before cpu_validated: {exc}") from exc
     return {
         "legal": True,
         "from": current,
@@ -610,6 +772,16 @@ def build_parser():
     specification_gate.set_defaults(
         handler=lambda args: command_validate_specification_gate(args.root)
     )
+
+    for name in ("validate-cpu-contract", "validate-validation"):
+        cpu_contract = commands.add_parser(name, help="validate the CPU Validation contract")
+        cpu_contract.add_argument("--root", type=Path, required=True)
+        cpu_contract.set_defaults(handler=lambda args: command_validate_cpu_contract(args.root))
+
+    for name in ("validate-cpu-report", "validate-validation-report"):
+        cpu_report = commands.add_parser(name, help="validate the CPU Validation Report")
+        cpu_report.add_argument("--root", type=Path, required=True)
+        cpu_report.set_defaults(handler=lambda args: command_validate_cpu_report(args.root))
 
     hash_command = commands.add_parser("canonical-hash", help="hash canonical JSON")
     hash_command.add_argument("document", type=Path)

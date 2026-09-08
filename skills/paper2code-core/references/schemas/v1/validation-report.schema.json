@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paper2code.local/schemas/v1/validation-report.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "stage",
+    "status",
+    "started_at",
+    "completed_at",
+    "state",
+    "return_target",
+    "deterministic",
+    "contract_sha256",
+    "math",
+    "paths",
+    "failure",
+    "artifacts"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "stage": {"const": "cpu_validation"},
+    "status": {"enum": ["passed", "failed"]},
+    "started_at": {"type": "string", "minLength": 1},
+    "completed_at": {"type": "string", "minLength": 1},
+    "state": {
+      "enum": ["cpu_validated", "diagnosing", "needs_decision", "revision_required"]
+    },
+    "return_target": {"type": ["string", "null"]},
+    "deterministic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seed", "device", "workers"],
+      "properties": {
+        "seed": {"type": "integer", "minimum": 0},
+        "device": {"const": "cpu"},
+        "workers": {"type": "integer", "minimum": 1}
+      }
+    },
+    "contract_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "math": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "command", "checks", "exit_code", "artifacts", "message"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^MATH-[0-9]{4}$"},
+          "status": {"enum": ["passed", "failed"]},
+          "command": {"type": "array", "items": {"type": "string", "minLength": 1}},
+          "checks": {"type": "object"},
+          "exit_code": {"type": ["integer", "null"]},
+          "artifacts": {"type": "array", "items": {"type": "string", "minLength": 1}},
+          "message": {"type": "string"}
+        }
+      }
+    },
+    "paths": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "status", "command", "exit_code", "artifacts", "message"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^PATH-[0-9]{4}$"},
+          "kind": {"enum": ["data", "model", "baseline", "metric", "reporting"]},
+          "status": {"enum": ["passed", "failed"]},
+          "command": {"type": "array", "items": {"type": "string", "minLength": 1}},
+          "exit_code": {"type": ["integer", "null"]},
+          "artifacts": {"type": "array", "items": {"type": "string", "minLength": 1}},
+          "message": {"type": "string"}
+        }
+      }
+    },
+    "failure": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["class", "id", "message", "state", "return_target"],
+      "properties": {
+        "class": {"enum": ["software", "scientific", "evidence", "environment"]},
+        "id": {"type": "string", "minLength": 1},
+        "message": {"type": "string", "minLength": 1},
+        "state": {"enum": ["diagnosing", "needs_decision", "revision_required"]},
+        "return_target": {"type": "string", "minLength": 1}
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

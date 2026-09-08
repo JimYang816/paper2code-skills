@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paper2code.local/schemas/v1/validation.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "stage", "deterministic", "critical_math", "paths"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "stage": {"const": "cpu_validation"},
+    "deterministic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seed", "device", "workers"],
+      "properties": {
+        "seed": {"type": "integer", "minimum": 0},
+        "device": {"const": "cpu"},
+        "workers": {"type": "integer", "minimum": 1}
+      }
+    },
+    "critical_math": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "reference", "command", "checks"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^MATH-[0-9]{4}$"},
+          "title": {"type": "string", "minLength": 1},
+          "reference": {"type": "string", "minLength": 1},
+          "command": {
+            "type": "array",
+            "minItems": 1,
+            "items": {"type": "string", "minLength": 1}
+          },
+          "checks": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["invariants", "units", "shapes", "gradients", "not_applicable"],
+            "properties": {
+              "invariants": {"type": "array", "items": {"type": "string", "minLength": 1}},
+              "units": {"type": "array", "items": {"type": "string", "minLength": 1}},
+              "shapes": {"type": "array", "items": {"type": "string", "minLength": 1}},
+              "gradients": {"type": "array", "items": {"type": "string", "minLength": 1}},
+              "not_applicable": {
+                "type": "array",
+                "items": {"enum": ["invariants", "units", "shapes", "gradients"]}
+              }
+            }
+          }
+        }
+      }
+    },
+    "paths": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "title", "command", "failure_class", "artifacts"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^PATH-[0-9]{4}$"},
+          "kind": {"enum": ["data", "model", "baseline", "metric", "reporting"]},
+          "title": {"type": "string", "minLength": 1},
+          "command": {
+            "type": "array",
+            "minItems": 1,
+            "items": {"type": "string", "minLength": 1}
+          },
+          "failure_class": {"enum": ["software", "scientific", "evidence", "environment"]},
+          "artifacts": {
+            "type": "array",
+            "items": {"type": "string", "minLength": 1}
+          }
+        }
+      }
+    }
+  }
+}

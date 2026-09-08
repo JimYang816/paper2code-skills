@@ -22,6 +22,9 @@ for every `must` ambiguity, `validate-wayfinding --root .` to check the
 decision frontier, `validate-evidence-gate --root .` to validate a recorded
 Evidence Gate, and `validate-scope-matrix --root .`,
 `validate-specification --root .`, and `validate-specification-gate --root .`
-to validate the specification stage artifacts and approval record. Stage
-skills own the approval conversation and state transition; these commands only
-perform deterministic checks.
+to validate the specification stage artifacts and approval record. The CPU
+Gate stage adds `validate-cpu-contract --root .` and
+`validate-cpu-report --root .`; the latter refuses a stale or failed report
+before the `cpu_validated` transition. Stage skills own the approval
+conversation and state transition; these commands only perform deterministic
+checks.
