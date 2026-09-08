@@ -21,7 +21,9 @@
     "paper-wayfinding",
     "paper-spec",
     "paper-validation",
-    "paper-run"
+    "paper-run",
+    "paper-evaluation",
+    "paper-diagnosis"
   ],
   "skills": {
     "code-review": {
@@ -173,9 +175,12 @@
         "assets/reproduction/dossier/scope-matrix.yaml": "dc15c01a732d06950d7a5c07f03b2bc39ca4104544ad513fb145a01ac8987d4b",
         "references/github-graph.md": "139f824b64f1aec6c60722ffb7b0c9c4962fd09db1bdb8fbf3b48a839d5b4fd0",
         "references/lifecycle.md": "a36c25dbfebf4551c6459bab3400d810e987e59271267718b75f22aebafdef3b",
-        "references/repository-layout.md": "fca6564c5c2945bec8ecb8e35d01b1e6f6b24aa7679b715ce14db1c67db27194",
+        "references/repository-layout.md": "9b96330e840c8de31b674e78981471c20256f8162c522bb271a5a2bdc51635de",
         "references/schemas/v1/ambiguities.schema.json": "a0515ef032e0f5715f81fb75a89203d35e055dac6c9b8db7c8eebd20c6e0b401",
         "references/schemas/v1/capability-report.schema.json": "5e6d42f8ae8a7e631e0621083355bc16de44e75560ba65e90c38d9d66bc8983a",
+        "references/schemas/v1/diagnosis.schema.json": "b4e9aa6898abf5d7cabb37f69e8e4fe16520204587ec23e02d065849c2df932d",
+        "references/schemas/v1/evaluation-report.schema.json": "1f99a664c7f49420a72f14f3bfd64a940fb59e7a97ff1b63ff2996f97ea56a97",
+        "references/schemas/v1/evaluation.schema.json": "ab4a24cff5b17b4d0fe1f01a286208d1438217ca78496e1c871be750806e28de",
         "references/schemas/v1/evidence-audit.schema.json": "9cf10cd5f14f42307edf0c7e0701e0a02683969ed1ac7bfd8a53412ad77820e8",
         "references/schemas/v1/evidence-gate.schema.json": "9a7f4321d5348c4346bf613d5eaab8463fec28405965fa2a5aa66eac0f8be670",
         "references/schemas/v1/evidence.schema.json": "157f6a9bd7387aefdbb0d8dd6736314adb79af1d1d336de16badd7bd93f5b32e",
@@ -190,11 +195,11 @@
         "references/schemas/v1/validation.schema.json": "81a9810e44ad2e10c645b85d842eb2e3e2e0a7cb1b4b56dc9ca4c31ed160eee8",
         "references/schemas/v1/wayfinding.schema.json": "43071b8eb113c21b10b45b7bd107a13b6f2c17ddb66b19d79ab539bda9ffeac1",
         "references/skill-closure.md": "0e589e0dcf93ede33cbba0fbf4f23a15425e76a68dac4a42203aeb8762083a71",
-        "scripts/paper2code.py": "ea48448912b69898c6ffabbb55de854c1c7aaa8299a4b773bff15505bd905ab1",
+        "scripts/paper2code.py": "aafd2ba08fedc76e6d1f7aa10d5c5f49d556da66b7eb017bc581bf7cf484aae6",
         "scripts/verify_closure.py": "0ba488ad8b08f39c117307890da50a392a235dca3f79f8161e2cbbd03300cd30",
-        "SKILL.md": "22c1b6d3fbafc66bae21dcfdbe641bc0315f8e654c3c5b6c6018d6adf8fe3bfa"
+        "SKILL.md": "86b215eb8280eff3186fdb2be68334045799b6d690e3a4d1a64e0f45abf333d4"
       },
-      "content_hash": "52ecca089af1038a0400d5f4ff301534dc9a7692ea399969a85951d53b9d068b"
+      "content_hash": "1c997bb1be462cbef7a1cd66b02d81e3e8924f99a79acd5645296f8afe659ea6"
     },
     "research": {
       "classification": "unchanged",
@@ -416,6 +421,39 @@
         "scripts/run.py": "865393a5a927723da3ce7e9fb9d0de7bc029de4304c69f98db60562dffb51c6a"
       },
       "content_hash": "9f26f5030e1e7c860abbf7bac75dd132655567b2550668c216e088f772ed5fa9"
+    },
+    "paper-evaluation": {
+      "classification": "new",
+      "origin": {
+        "repository": "https://github.com/JimYang816/paper2code-skills",
+        "path": "skills/paper-evaluation"
+      },
+      "license": "MIT",
+      "dependencies": [
+        "paper2code-core"
+      ],
+      "files": {
+        "scripts/evaluate.py": "a95d8aa2caf88886c9835cf8e5ef15fa6f25d8882ad6a340977de74e33cdeae7",
+        "references/evaluation.md": "34a327b174f74255bfc3fe6dbcef5f99f76e7c1e3ee1ecf7e666fb4a7e977048",
+        "SKILL.md": "302dbbbbe56529560af5dfda11ea8d28ab7415bf2e308fd7c103b882de11d8ce"
+      },
+      "content_hash": "7844d95ba566c2d17133b9aedfa1c0dd1a4227a7fcfea552704c4b24cc65bde6"
+    },
+    "paper-diagnosis": {
+      "classification": "new",
+      "origin": {
+        "repository": "https://github.com/JimYang816/paper2code-skills",
+        "path": "skills/paper-diagnosis"
+      },
+      "license": "MIT",
+      "dependencies": [
+        "paper2code-core"
+      ],
+      "files": {
+        "SKILL.md": "5908da730eef983e7fddc45a809395a3e9b8c1792d894d6a4538f21bdfd788ba",
+        "scripts/diagnose.py": "7a048f2d2269f07ce19648ea90b376105158bd4ed6e5a3ce5db4dd3298eac4eb"
+      },
+      "content_hash": "eded46e4c360b26f3110b2355cd9fc0fc970a66540602293a788625df29d76b5"
     }
   },
   "distribution_files": {

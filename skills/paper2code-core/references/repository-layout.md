@@ -26,6 +26,9 @@ runs/
     bundle.yaml
     report.yaml
 results/
+  evaluation.yaml
+  evaluation-report.yaml
+  diagnosis.yaml
 prototypes/
 skills/
 skills-lock.yaml

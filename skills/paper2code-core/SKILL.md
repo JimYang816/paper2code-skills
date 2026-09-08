@@ -31,3 +31,10 @@ before the `cpu_validated` transition. The Full Run stage adds
 for local and imported bundles and refuse stale hashes or missing artifacts.
 Stage skills own the approval conversation and state transition; these commands
 only perform deterministic checks.
+
+For the final stage, validate-evaluation --root . checks the frozen Result
+Preregistration and validate-evaluation-report --root . checks the claim-level
+report, its Full Run identity, and its outcome. The paper-evaluation Stage
+Skill advances full_run_complete to evaluated only with a current report;
+paper-diagnosis records typed failure routes and does not edit preregistered
+criteria.

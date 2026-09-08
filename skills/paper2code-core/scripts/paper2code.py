@@ -49,6 +49,8 @@ VALIDATION_REPORT_SCHEMA = SCHEMAS_DIR / "validation-report.schema.json"
 RUN_SCHEMA = SCHEMAS_DIR / "run.schema.json"
 FULL_RUN_GATE_SCHEMA = SCHEMAS_DIR / "full-run-gate.schema.json"
 FULL_RUN_REPORT_SCHEMA = SCHEMAS_DIR / "full-run-report.schema.json"
+EVALUATION_SCHEMA = SCHEMAS_DIR / "evaluation.schema.json"
+EVALUATION_REPORT_SCHEMA = SCHEMAS_DIR / "evaluation-report.schema.json"
 VALIDATION_KINDS = {"data", "model", "baseline", "metric", "reporting"}
 VALIDATION_CHECKS = ("invariants", "units", "shapes", "gradients")
 PLACEHOLDER_RE = re.compile(r"\b(TODO|TBD|FIXME|PLACEHOLDER)\b", flags=re.IGNORECASE)
@@ -936,6 +938,150 @@ def command_validate_full_run_report(root, run_id=None):
     }
 
 
+def _validate_evaluation_contract(document, root):
+    validate_schema_file(document, EVALUATION_SCHEMA, "results/evaluation.yaml")
+    if has_unresolved_value(document):
+        raise ContractError("results/evaluation.yaml contains unresolved placeholders")
+
+    ensure_unique_ids(document["claims"], "results/evaluation.yaml claims")
+    ensure_unique_ids(document["metrics"], "results/evaluation.yaml metrics")
+    metric_ids = {item["id"] for item in document["metrics"]}
+    claims_by_id = {item["id"]: item for item in document["claims"]}
+    for claim in document["claims"]:
+        if claim["result"]["metric_id"] not in metric_ids:
+            raise ContractError(
+                f"evaluation claim {claim['id']} references unknown metric "
+                f"{claim['result']['metric_id']}"
+            )
+        seeds = claim["execution"].get("seeds")
+        if seeds is not None and len(seeds) != len(set(seeds)):
+            raise ContractError(f"evaluation claim {claim['id']} contains duplicate seeds")
+        for relative in claim["evidence"]["required_artifacts"]:
+            _validate_relative_artifact(relative, f"{claim['id']} evidence artifact")
+    scope_path = root / "dossier/scope-matrix.yaml"
+    if scope_path.is_file():
+        scope_document = load_json(scope_path)
+        if scope_document.get("claims"):
+            command_validate_scope_matrix(root)
+            scoped_claims = {
+                item["id"]: item for item in scope_document["claims"] if item["scope"] != "out"
+            }
+            missing_claims = sorted(set(scoped_claims) - set(claims_by_id))
+            if missing_claims:
+                raise ContractError(
+                    "Evaluation contract does not cover scoped claims: " + ", ".join(missing_claims)
+                )
+            for identifier, scoped in scoped_claims.items():
+                if claims_by_id[identifier]["scope"] != scoped["scope"]:
+                    raise ContractError(
+                        f"Evaluation claim scope differs from dossier scope for {identifier}"
+                    )
+    for metric in document["metrics"]:
+        template = metric["path"]
+        safe_template = template.replace("{root}", "root").replace("{run_dir}", "run_dir").replace("{seed}", "seed")
+        _validate_relative_artifact(safe_template, f"{metric['id']} metric path")
+
+    bundle_path = root / "runs" / document["full_run_id"] / "bundle.yaml"
+    if not bundle_path.is_file():
+        raise ContractError(
+            f"Evaluation contract references missing Full Run bundle: {document['full_run_id']}"
+        )
+    bundle_result, bundle = _validate_run_bundle(root, document["full_run_id"])
+    command_ids = {item["id"] for item in bundle["commands"]}
+    for claim in document["claims"]:
+        unknown = sorted(set(claim["execution"]["command_ids"]) - command_ids)
+        if unknown:
+            raise ContractError(
+                f"evaluation claim {claim['id']} references unknown commands: " + ", ".join(unknown)
+            )
+    return {
+        "valid": True,
+        "full_run_id": document["full_run_id"],
+        "claims": len(document["claims"]),
+        "must_claims": len([item for item in document["claims"] if item["scope"] == "must"]),
+        "metrics": len(document["metrics"]),
+        "bundle": bundle_result,
+    }
+
+
+def command_validate_evaluation(root):
+    root = root.resolve()
+    path = root / "results/evaluation.yaml"
+    if not path.is_file():
+        raise ContractError("Missing results/evaluation.yaml")
+    return _validate_evaluation_contract(load_json(path), root)
+
+
+def _evaluation_outcome(claims):
+    must = [item for item in claims if item["scope"] == "must"]
+    if not must:
+        return "inconclusive"
+    if any(item["verdict"] == "not replicated" for item in must):
+        return "not replicated"
+    if all(item["verdict"] == "replicated" for item in must):
+        return "replicated"
+    if any(item["verdict"] == "replicated" for item in must):
+        return "partially replicated"
+    return "inconclusive"
+
+
+def command_validate_evaluation_report(root):
+    root = root.resolve()
+    contract_result = command_validate_evaluation(root)
+    contract_path = root / "results/evaluation.yaml"
+    contract = load_json(contract_path)
+    report_path = root / "results/evaluation-report.yaml"
+    if not report_path.is_file():
+        raise ContractError("Missing results/evaluation-report.yaml")
+    report = load_json(report_path)
+    validate_schema_file(report, EVALUATION_REPORT_SCHEMA, "results/evaluation-report.yaml")
+    if report["full_run_id"] != contract["full_run_id"]:
+        raise ContractError("Evaluation report full_run_id differs from its contract")
+    if report["contract_sha256"] != canonical_hash(contract_path):
+        raise ContractError("Evaluation report is stale: evaluation contract changed")
+    full_report_path = root / "runs" / contract["full_run_id"] / "report.yaml"
+    full_report_result = command_validate_full_run_report(root, contract["full_run_id"])
+    if full_report_result["status"] != "passed":
+        raise ContractError("Evaluation requires a passed Full Run report")
+    if report["full_run_report_sha256"] != canonical_hash(full_report_path):
+        raise ContractError("Evaluation report is stale: Full Run report changed")
+
+    expected_claims = {item["id"]: item for item in contract["claims"]}
+    actual_claims = {item["id"]: item for item in report["claims"]}
+    if set(actual_claims) != set(expected_claims):
+        raise ContractError("Evaluation report does not cover every claim in its contract")
+    metrics = {item["id"]: item for item in contract["metrics"]}
+    for identifier, result in actual_claims.items():
+        expected = expected_claims[identifier]
+        if result["title"] != expected["title"] or result["scope"] != expected["scope"]:
+            raise ContractError(f"Evaluation report claim metadata differs for {identifier}")
+        metric = metrics[expected["result"]["metric_id"]]
+        agreement = result["result_agreement"]
+        if agreement["metric_id"] != metric["id"]:
+            raise ContractError(f"Evaluation report metric differs for {identifier}")
+        if agreement["target"] != metric["target"] or agreement["tolerance"] != metric["tolerance"]:
+            raise ContractError(f"Evaluation report result criteria differ for {identifier}")
+
+    expected_outcome = _evaluation_outcome(report["claims"])
+    if report["outcome"] != expected_outcome:
+        raise ContractError("Evaluation report outcome does not match its claim verdicts")
+    if report["status"] == "passed":
+        if report["failure"] is not None:
+            raise ContractError("Passed Evaluation report cannot contain a failure")
+    elif report["failure"] is None:
+        raise ContractError("Failed Evaluation report must classify a failure")
+
+    return {
+        "valid": True,
+        "status": report["status"],
+        "outcome": report["outcome"],
+        "full_run_id": contract["full_run_id"],
+        "claims": len(report["claims"]),
+        "contract": contract_result,
+        "full_run": full_report_result,
+    }
+
+
 def transition_allowed(current, target, return_target):
     if target in EXCEPTION_STATES:
         return current in NORMAL_STATES and return_target == current
@@ -972,6 +1118,13 @@ def command_check_transition(state_file, target, return_target):
                 raise ContractError("Full Run Report is not a passed report")
         except ContractError as exc:
             raise ContractError(f"Full Run Report required before full_run_complete: {exc}") from exc
+    if target == "evaluated":
+        try:
+            report_result = command_validate_evaluation_report(state_file.resolve().parent.parent)
+            if report_result["status"] != "passed":
+                raise ContractError("Evaluation Report is not a passed report")
+        except ContractError as exc:
+            raise ContractError(f"Evaluation Report required before evaluated: {exc}") from exc
     return {
         "legal": True,
         "from": current,
@@ -1053,6 +1206,19 @@ def build_parser():
     run_report.set_defaults(
         handler=lambda args: command_validate_full_run_report(args.root, args.run_id)
     )
+
+    evaluation = commands.add_parser(
+        "validate-evaluation", aliases=["validate-evaluation-contract"],
+        help="validate the claim evaluation contract"
+    )
+    evaluation.add_argument("--root", type=Path, required=True)
+    evaluation.set_defaults(handler=lambda args: command_validate_evaluation(args.root))
+
+    evaluation_report = commands.add_parser(
+        "validate-evaluation-report", help="validate the completed claim evaluation"
+    )
+    evaluation_report.add_argument("--root", type=Path, required=True)
+    evaluation_report.set_defaults(handler=lambda args: command_validate_evaluation_report(args.root))
 
     hash_command = commands.add_parser("canonical-hash", help="hash canonical JSON")
     hash_command.add_argument("document", type=Path)

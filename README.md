@@ -7,10 +7,13 @@ the new `paper2code-core` deterministic support skill, the new
 Stage Skill, the new `paper-grilling` Evidence Gate Stage Skill, and the new
 `paper-wayfinding` decision-frontier Stage Skill, and the new `paper-spec`
 Specification Gate Stage Skill, the new `paper-validation` CPU Gate Stage
-Skill, and the new `paper-run` Full Run Stage Skill. The CPU stage demonstrates
+Skill, the new `paper-run` Full Run Stage Skill, the new `paper-evaluation`
+claim-level evaluation Stage Skill, and the new `paper-diagnosis` failure
+routing Stage Skill. The CPU stage demonstrates
 the independent-reference and deterministic reduced-run boundary; the Full Run
 stage carries that boundary into an approved, hash-bound, locally executable or
-externally importable bundle.
+externally importable bundle, and evaluation turns its output into separate
+claim verdicts without changing preregistered result criteria.
 
 With Python 3.9 or later and no third-party packages:
 

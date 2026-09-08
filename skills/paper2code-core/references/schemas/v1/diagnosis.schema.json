@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paper2code.local/schemas/v1/diagnosis.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "stage", "source_report", "source_sha256", "failure", "route"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "stage": {"const": "diagnosis"},
+    "source_report": {"type": "string", "minLength": 1},
+    "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "failure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["class", "id", "message"],
+      "properties": {
+        "class": {"enum": ["software", "scientific", "result", "environment", "evidence"]},
+        "id": {"type": "string", "minLength": 1},
+        "message": {"type": "string", "minLength": 1}
+      }
+    },
+    "route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "return_target"],
+      "properties": {
+        "state": {"enum": ["diagnosing", "needs_decision", "revision_required"]},
+        "return_target": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}
