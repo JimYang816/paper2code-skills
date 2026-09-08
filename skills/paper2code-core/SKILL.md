@@ -34,7 +34,8 @@ only perform deterministic checks.
 
 For the final stage, validate-evaluation --root . checks the frozen Result
 Preregistration and validate-evaluation-report --root . checks the claim-level
-report, its Full Run identity, and its outcome. The paper-evaluation Stage
-Skill advances full_run_complete to evaluated only with a current report;
-paper-diagnosis records typed failure routes and does not edit preregistered
-criteria.
+report, its Full Run identity, and its outcome. Evaluation requires the Result
+Preregistration hash to be bound by the Full Run Gate before execution. The
+paper-evaluation Stage Skill advances full_run_complete to evaluated only with
+a current report; paper-diagnosis records typed failure routes and does not
+edit preregistered criteria.

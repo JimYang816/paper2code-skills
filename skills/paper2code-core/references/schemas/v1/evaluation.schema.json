@@ -46,13 +46,14 @@
           "execution": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["command_ids"],
+            "required": ["command_ids", "independent_seeds"],
             "properties": {
               "command_ids": {
                 "type": "array",
                 "minItems": 1,
                 "items": {"type": "string", "pattern": "^CMD-[0-9]{4}$"}
               },
+              "independent_seeds": {"type": "boolean"},
               "minimum_successful_seeds": {"type": "integer", "minimum": 1},
               "seeds": {
                 "type": "array",
@@ -80,9 +81,23 @@
               "minimum_strength": {"enum": ["low", "moderate", "high"]},
               "required_artifacts": {
                 "type": "array",
-                "items": {"type": "string", "minLength": 1}
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["path", "sha256"],
+                  "properties": {
+                    "path": {"type": "string", "minLength": 1},
+                    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+                  }
+                }
               },
-              "digitization_uncertainty": {"type": "number", "minimum": 0}
+              "digitization_uncertainty": {"type": "number", "minimum": 0},
+              "digitization_record": {"type": ["string", "null"]},
+              "digitization_record_sha256": {
+                "type": ["string", "null"],
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "independent_cross_check": {"type": "boolean"}
             }
           }
         }
@@ -103,7 +118,8 @@
           "aggregation": {"enum": ["mean", "median", "min", "max", "first", "single"]},
           "target": {"type": "number"},
           "tolerance": {"type": "number", "minimum": 0},
-          "comparison": {"enum": ["within", "equal", "lte", "gte"]}
+          "comparison": {"enum": ["within", "equal", "lte", "gte"]},
+          "max_standard_deviation": {"type": ["number", "null"], "minimum": 0}
         }
       }
     }

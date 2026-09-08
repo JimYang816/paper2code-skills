@@ -13,6 +13,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+from evaluation_engine import evaluate_claims as recompute_evaluation_claims
+from evaluation_engine import overall_outcome as recompute_evaluation_outcome
+from evaluation_engine import validation_results as evaluation_validation_results
+
 
 SCHEMA_VERSION = "1.0"
 NORMAL_STATES = [
@@ -165,6 +169,9 @@ def validate_against_schema(instance, schema, path="$", root=None):
     if "minimum" in schema and isinstance(instance, (int, float)) and not isinstance(instance, bool):
         if instance < schema["minimum"]:
             raise ContractError(f"{path} must be at least {schema['minimum']}")
+    if "maximum" in schema and isinstance(instance, (int, float)) and not isinstance(instance, bool):
+        if instance > schema["maximum"]:
+            raise ContractError(f"{path} must be at most {schema['maximum']}")
 
 
 def validate_schema_file(value, schema_path, label):
@@ -850,8 +857,23 @@ def command_validate_full_run_gate(root):
     report_path = root / gate["cpu_validation_report_path"]
     if not report_path.is_file():
         raise ContractError("Full Run Gate references a missing CPU Validation Report")
+    cpu_report_result = command_validate_cpu_report(root)
+    if cpu_report_result["status"] != "passed":
+        raise ContractError("Full Run Gate requires a passed CPU Validation Report")
     if gate["cpu_validation_report_sha256"] != canonical_hash(report_path):
         raise ContractError("stale Full Run approval: CPU Validation Report changed")
+    evaluation_keys = {"evaluation_contract_path", "evaluation_contract_sha256"}
+    present_evaluation_keys = evaluation_keys & set(gate)
+    if present_evaluation_keys and present_evaluation_keys != evaluation_keys:
+        raise ContractError("Full Run Gate must bind both evaluation contract fields")
+    if present_evaluation_keys:
+        evaluation_path = root / gate["evaluation_contract_path"]
+        if gate["evaluation_contract_path"] != "results/evaluation.yaml":
+            raise ContractError("Full Run Gate evaluation contract path is invalid")
+        if not evaluation_path.is_file():
+            raise ContractError("Full Run Gate references a missing evaluation contract")
+        if gate["evaluation_contract_sha256"] != canonical_hash(evaluation_path):
+            raise ContractError("stale Full Run approval: evaluation contract changed")
     for name, relative in {
         "run": "skills/paper2code-core/references/schemas/v1/run.schema.json",
         "gate": "skills/paper2code-core/references/schemas/v1/full-run-gate.schema.json",
@@ -867,6 +889,7 @@ def command_validate_full_run_gate(root):
         "bundle_sha256": gate["bundle_sha256"],
         "approval_sha256": canonical_hash(path),
         "code_revision": gate["code_revision"],
+        "evaluation_contract_sha256": gate.get("evaluation_contract_sha256"),
     }
 
 
@@ -935,6 +958,7 @@ def command_validate_full_run_report(root, run_id=None):
         "artifacts": sorted(report["artifacts"]),
         "bundle": bundle_result,
         "environment": bundle["environment"],
+        "evaluation_contract_sha256": gate_result.get("evaluation_contract_sha256"),
     }
 
 
@@ -956,8 +980,11 @@ def _validate_evaluation_contract(document, root):
         seeds = claim["execution"].get("seeds")
         if seeds is not None and len(seeds) != len(set(seeds)):
             raise ContractError(f"evaluation claim {claim['id']} contains duplicate seeds")
-        for relative in claim["evidence"]["required_artifacts"]:
-            _validate_relative_artifact(relative, f"{claim['id']} evidence artifact")
+        for artifact in claim["evidence"]["required_artifacts"]:
+            _validate_relative_artifact(artifact["path"], f"{claim['id']} evidence artifact")
+        record = claim["evidence"].get("digitization_record")
+        if record:
+            _validate_relative_artifact(record, f"{claim['id']} digitization record")
     scope_path = root / "dossier/scope-matrix.yaml"
     if scope_path.is_file():
         scope_document = load_json(scope_path)
@@ -989,6 +1016,20 @@ def _validate_evaluation_contract(document, root):
     bundle_result, bundle = _validate_run_bundle(root, document["full_run_id"])
     command_ids = {item["id"] for item in bundle["commands"]}
     for claim in document["claims"]:
+        requested_seeds = claim["execution"].get("seeds", bundle["seeds"])
+        unknown_seeds = sorted(set(requested_seeds) - set(bundle["seeds"]))
+        if unknown_seeds:
+            raise ContractError(
+                f"evaluation claim {claim['id']} references unknown Full Run seeds: "
+                + ", ".join(str(seed) for seed in unknown_seeds)
+            )
+        minimum = claim["execution"].get("minimum_successful_seeds", len(requested_seeds))
+        if minimum > len(requested_seeds):
+            raise ContractError(
+                f"evaluation claim {claim['id']} requires more successful seeds than it selects"
+            )
+        if len(claim["execution"]["command_ids"]) != len(set(claim["execution"]["command_ids"])):
+            raise ContractError(f"evaluation claim {claim['id']} contains duplicate command ids")
         unknown = sorted(set(claim["execution"]["command_ids"]) - command_ids)
         if unknown:
             raise ContractError(
@@ -1012,19 +1053,6 @@ def command_validate_evaluation(root):
     return _validate_evaluation_contract(load_json(path), root)
 
 
-def _evaluation_outcome(claims):
-    must = [item for item in claims if item["scope"] == "must"]
-    if not must:
-        return "inconclusive"
-    if any(item["verdict"] == "not replicated" for item in must):
-        return "not replicated"
-    if all(item["verdict"] == "replicated" for item in must):
-        return "replicated"
-    if any(item["verdict"] == "replicated" for item in must):
-        return "partially replicated"
-    return "inconclusive"
-
-
 def command_validate_evaluation_report(root):
     root = root.resolve()
     contract_result = command_validate_evaluation(root)
@@ -1041,10 +1069,28 @@ def command_validate_evaluation_report(root):
         raise ContractError("Evaluation report is stale: evaluation contract changed")
     full_report_path = root / "runs" / contract["full_run_id"] / "report.yaml"
     full_report_result = command_validate_full_run_report(root, contract["full_run_id"])
+    if not full_report_result.get("evaluation_contract_sha256"):
+        raise ContractError("Evaluation contract was not bound before Full Run approval")
     if full_report_result["status"] != "passed":
         raise ContractError("Evaluation requires a passed Full Run report")
     if report["full_run_report_sha256"] != canonical_hash(full_report_path):
         raise ContractError("Evaluation report is stale: Full Run report changed")
+
+    full_report = load_json(full_report_path)
+    bundle = load_json(root / "runs" / contract["full_run_id"] / "bundle.yaml")
+    expected_claim_values, expected_failure = recompute_evaluation_claims(
+        root,
+        contract,
+        full_report,
+        bundle,
+        evaluation_validation_results(root),
+    )
+    if report["claims"] != expected_claim_values:
+        raise ContractError("Evaluation report verdicts do not match the Full Run evidence")
+    if report["failure"] != expected_failure:
+        raise ContractError("Evaluation report failure route does not match the Full Run evidence")
+    if report["status"] != ("failed" if expected_failure else "passed"):
+        raise ContractError("Evaluation report status does not match its claim assessments")
 
     expected_claims = {item["id"]: item for item in contract["claims"]}
     actual_claims = {item["id"]: item for item in report["claims"]}
@@ -1062,7 +1108,7 @@ def command_validate_evaluation_report(root):
         if agreement["target"] != metric["target"] or agreement["tolerance"] != metric["tolerance"]:
             raise ContractError(f"Evaluation report result criteria differ for {identifier}")
 
-    expected_outcome = _evaluation_outcome(report["claims"])
+    expected_outcome = recompute_evaluation_outcome(report["claims"])
     if report["outcome"] != expected_outcome:
         raise ContractError("Evaluation report outcome does not match its claim verdicts")
     if report["status"] == "passed":

@@ -179,12 +179,12 @@
         "references/schemas/v1/ambiguities.schema.json": "a0515ef032e0f5715f81fb75a89203d35e055dac6c9b8db7c8eebd20c6e0b401",
         "references/schemas/v1/capability-report.schema.json": "5e6d42f8ae8a7e631e0621083355bc16de44e75560ba65e90c38d9d66bc8983a",
         "references/schemas/v1/diagnosis.schema.json": "b4e9aa6898abf5d7cabb37f69e8e4fe16520204587ec23e02d065849c2df932d",
-        "references/schemas/v1/evaluation-report.schema.json": "1f99a664c7f49420a72f14f3bfd64a940fb59e7a97ff1b63ff2996f97ea56a97",
-        "references/schemas/v1/evaluation.schema.json": "ab4a24cff5b17b4d0fe1f01a286208d1438217ca78496e1c871be750806e28de",
+        "references/schemas/v1/evaluation-report.schema.json": "794a1b9f8b4c6d45212db5bd7fc9ddf547854908b1d5fd01944a5649c341c4aa",
+        "references/schemas/v1/evaluation.schema.json": "1a70454b878deb0797e4fdcfad942a87a293efe5b949a1cd755534e54890cca0",
         "references/schemas/v1/evidence-audit.schema.json": "9cf10cd5f14f42307edf0c7e0701e0a02683969ed1ac7bfd8a53412ad77820e8",
         "references/schemas/v1/evidence-gate.schema.json": "9a7f4321d5348c4346bf613d5eaab8463fec28405965fa2a5aa66eac0f8be670",
         "references/schemas/v1/evidence.schema.json": "157f6a9bd7387aefdbb0d8dd6736314adb79af1d1d336de16badd7bd93f5b32e",
-        "references/schemas/v1/full-run-gate.schema.json": "dae0e9048ecdd2e8756449513d78a01c451f60a0475b1dbe48104bcf3536da35",
+        "references/schemas/v1/full-run-gate.schema.json": "0c1bf7b31b6d5af9942424c495583ab6bc28128e5da6c7d5ca699148eaca1b86",
         "references/schemas/v1/full-run-report.schema.json": "c4f5ac02a598bc016bf51a8e53ed0c0f5fcfe3bbbf1c27164ab3970aab0a348c",
         "references/schemas/v1/run.schema.json": "df0f1f2ad673118b7f7b145a731b957dd857116d011e1c7c51c824d579480df7",
         "references/schemas/v1/scope-matrix.schema.json": "e63f9e5ad278041e087ef8ec652e77f77a4631dce5f50a96e572265997febd22",
@@ -195,11 +195,12 @@
         "references/schemas/v1/validation.schema.json": "81a9810e44ad2e10c645b85d842eb2e3e2e0a7cb1b4b56dc9ca4c31ed160eee8",
         "references/schemas/v1/wayfinding.schema.json": "43071b8eb113c21b10b45b7bd107a13b6f2c17ddb66b19d79ab539bda9ffeac1",
         "references/skill-closure.md": "0e589e0dcf93ede33cbba0fbf4f23a15425e76a68dac4a42203aeb8762083a71",
-        "scripts/paper2code.py": "aafd2ba08fedc76e6d1f7aa10d5c5f49d556da66b7eb017bc581bf7cf484aae6",
+        "scripts/evaluation_engine.py": "e15d056c0aa353af98e4d308d8576a596880933a6ee6d73788f62898c049986b",
+        "scripts/paper2code.py": "73ec29dfc37d12720dc637f8b970c36f46166b7636c32efe0ad79449472da647",
         "scripts/verify_closure.py": "0ba488ad8b08f39c117307890da50a392a235dca3f79f8161e2cbbd03300cd30",
-        "SKILL.md": "86b215eb8280eff3186fdb2be68334045799b6d690e3a4d1a64e0f45abf333d4"
+        "SKILL.md": "9ce65852c84c1fd5d7432ab1f0d4e965f2a280554eaeef32fa31cfaa4a3fbf25"
       },
-      "content_hash": "1c997bb1be462cbef7a1cd66b02d81e3e8924f99a79acd5645296f8afe659ea6"
+      "content_hash": "726c150ad62de9d164132db705c815b833e6b7ec7193fe6ded0ba42a7fa9495e"
     },
     "research": {
       "classification": "unchanged",
@@ -418,9 +419,9 @@
       "files": {
         "SKILL.md": "97451d01731314035819147d3b8820bcb83a8ec727a6d2d6379fe2776f7db2b0",
         "references/run-bundle.md": "4cd337a3db4bd5d32462ec1a142b0dcbc373d4fe48ae2c990162784a8599cb00",
-        "scripts/run.py": "865393a5a927723da3ce7e9fb9d0de7bc029de4304c69f98db60562dffb51c6a"
+        "scripts/run.py": "f7ce214d71f31cac1126a80ea69bc4f41a89df34c0576e338f49e8ae3735c6bb"
       },
-      "content_hash": "9f26f5030e1e7c860abbf7bac75dd132655567b2550668c216e088f772ed5fa9"
+      "content_hash": "bc167fa90749932aee0891200b9c0f81a327f3fba1428f6c53398f576c31c0c4"
     },
     "paper-evaluation": {
       "classification": "new",
@@ -433,11 +434,11 @@
         "paper2code-core"
       ],
       "files": {
-        "scripts/evaluate.py": "a95d8aa2caf88886c9835cf8e5ef15fa6f25d8882ad6a340977de74e33cdeae7",
-        "references/evaluation.md": "34a327b174f74255bfc3fe6dbcef5f99f76e7c1e3ee1ecf7e666fb4a7e977048",
-        "SKILL.md": "302dbbbbe56529560af5dfda11ea8d28ab7415bf2e308fd7c103b882de11d8ce"
+        "scripts/evaluate.py": "dea24ff4c31ba43af1b9f0eea2498ec357c4fda5aedd3ab8d61b38c1d9b721fc",
+        "references/evaluation.md": "67b41ccad1b5b5f0a266c27ddfd673ffdb910ee5cf72989271f975d7ab9b684c",
+        "SKILL.md": "8722c9740b51a187d9b92c74ce69f48bcfc5582e14970e42991bb39ab9d45444"
       },
-      "content_hash": "7844d95ba566c2d17133b9aedfa1c0dd1a4227a7fcfea552704c4b24cc65bde6"
+      "content_hash": "5e721d79e6847a35ace885b61d69da8a7fdade7de0550b133c1bbfb45d73e980"
     },
     "paper-diagnosis": {
       "classification": "new",
@@ -447,13 +448,14 @@
       },
       "license": "MIT",
       "dependencies": [
-        "paper2code-core"
+        "paper2code-core",
+        "paper-evaluation"
       ],
       "files": {
         "SKILL.md": "5908da730eef983e7fddc45a809395a3e9b8c1792d894d6a4538f21bdfd788ba",
-        "scripts/diagnose.py": "7a048f2d2269f07ce19648ea90b376105158bd4ed6e5a3ce5db4dd3298eac4eb"
+        "scripts/diagnose.py": "c8eaae11c46d7a2f12169a5b7bff4bf89ce80b45bf38a1b2d107a6e2df407682"
       },
-      "content_hash": "eded46e4c360b26f3110b2355cd9fc0fc970a66540602293a788625df29d76b5"
+      "content_hash": "b98343a6053a6126433fd3578c2d716421b8259edab2ce765aee40a195ae8a8c"
     }
   },
   "distribution_files": {

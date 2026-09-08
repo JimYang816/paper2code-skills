@@ -12,6 +12,8 @@ import sys
 SCHEMA_VERSION = "1.0"
 STATE_RELATIVE = ".paper2code/state.yaml"
 EVALUATION_REPORT = "results/evaluation-report.yaml"
+EVALUATION_SCRIPT = "skills/paper-evaluation/scripts/evaluate.py"
+FULL_RUN_GATE = ".paper2code/gates/full-run-gate.yaml"
 
 
 class ContractError(ValueError):
@@ -51,6 +53,18 @@ def run_core(root, *arguments):
     return json.loads(completed.stdout)
 
 
+def verify_evaluation(root):
+    completed = subprocess.run(
+        [sys.executable, str(root / EVALUATION_SCRIPT), "--root", str(root), "verify"],
+        cwd=root,
+        text=True,
+        capture_output=True,
+    )
+    if completed.returncode != 0:
+        raise ContractError(completed.stderr.strip() or completed.stdout.strip())
+    return json.loads(completed.stdout)
+
+
 def read_state(root):
     state = load_json(root / STATE_RELATIVE)
     if state.get("schema_version") != SCHEMA_VERSION:
@@ -61,17 +75,31 @@ def read_state(root):
 def source_failure(root, failure_class, identifier, message):
     path = root / EVALUATION_REPORT
     if path.is_file():
+        verify_evaluation(root)
         document = load_json(path)
         failure = document.get("failure")
         if failure:
             return EVALUATION_REPORT, failure, path
         if document.get("status") == "failed":
             raise ContractError("Evaluation report is failed but does not classify a failure")
-    for candidate in sorted((root / "runs").glob("*/report.yaml")):
-        document = load_json(candidate)
-        failure = document.get("failure")
-        if failure:
-            return candidate.relative_to(root).as_posix(), failure, candidate
+    gate_path = root / FULL_RUN_GATE
+    if gate_path.is_file():
+        gate = load_json(gate_path)
+        run_id = gate.get("run_id")
+        candidate = root / "runs" / run_id / "report.yaml" if run_id else None
+        if candidate and candidate.is_file():
+            run_core(
+                root,
+                "validate-full-run-report",
+                "--root",
+                str(root),
+                "--run-id",
+                run_id,
+            )
+            document = load_json(candidate)
+            failure = document.get("failure")
+            if failure:
+                return candidate.relative_to(root).as_posix(), failure, candidate
     if not failure_class:
         raise ContractError("No recorded reproduction failure; pass --failure-class for an external failure")
     return "external", {"class": failure_class, "id": identifier or "external", "message": message or "External failure"}, None

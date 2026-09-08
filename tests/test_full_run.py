@@ -153,6 +153,51 @@ def make_bundle(target, capability="{python}", revision=None):
     write_json(target / "runs/fixture/bundle.yaml", bundle)
 
 
+def make_evaluation_contract(target):
+    write_json(
+        target / "results/evaluation.yaml",
+        {
+            "schema_version": "1.0",
+            "stage": "evaluation",
+            "status": "preregistered",
+            "full_run_id": "fixture",
+            "preregistered_at": "2026-01-01T00:00:00+00:00",
+            "preregistered_by": "researcher@example.com",
+            "claims": [
+                {
+                    "id": "CLM-0001",
+                    "title": "Fixture score",
+                    "scope": "must",
+                    "implementation": {"validation_ids": ["PATH-0001"]},
+                    "execution": {
+                        "command_ids": ["CMD-0001"],
+                        "independent_seeds": True,
+                    },
+                    "result": {"metric_id": "MET-0001"},
+                    "evidence": {
+                        "provenance": "source-faithful",
+                        "minimum_strength": "low",
+                        "required_artifacts": [],
+                        "digitization_uncertainty": 0,
+                    },
+                }
+            ],
+            "metrics": [
+                {
+                    "id": "MET-0001",
+                    "title": "Fixture score",
+                    "path": "{run_dir}/metrics/metric-{seed}.json",
+                    "json_pointer": "/score",
+                    "aggregation": "mean",
+                    "target": 10,
+                    "tolerance": 0,
+                    "comparison": "within",
+                }
+            ],
+        },
+    )
+
+
 class FullRunTests(unittest.TestCase):
     def scaffold(self, capability="{python}"):
         temp = TempDirectory()
@@ -191,6 +236,7 @@ class FullRunTests(unittest.TestCase):
         subprocess.run(["git", "-C", str(target), "commit", "-m", "fixture"], check=True, capture_output=True)
         revision = subprocess.check_output(["git", "-C", str(target), "rev-parse", "HEAD"], text=True).strip()
         make_bundle(target, capability, revision)
+        make_evaluation_contract(target)
         return target
 
     def run_tool(self, target, *args, expected=0):

@@ -14,6 +14,8 @@
     "bundle_sha256",
     "cpu_validation_report_path",
     "cpu_validation_report_sha256",
+    "evaluation_contract_path",
+    "evaluation_contract_sha256",
     "code_revision",
     "schemas"
   ],
@@ -29,6 +31,8 @@
     "cpu_validation_report_path": {"type": "string", "minLength": 1},
     "cpu_validation_report_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "code_revision": {"type": "string", "pattern": "^[0-9a-f]{7,64}$"},
+    "evaluation_contract_path": {"type": "string", "minLength": 1},
+    "evaluation_contract_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "schemas": {
       "type": "object",
       "additionalProperties": false,

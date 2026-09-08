@@ -24,6 +24,7 @@ CPU_REPORT_RELATIVE = "validation/reports/cpu-validation.yaml"
 RUN_SCHEMA_RELATIVE = "skills/paper2code-core/references/schemas/v1/run.schema.json"
 GATE_SCHEMA_RELATIVE = "skills/paper2code-core/references/schemas/v1/full-run-gate.schema.json"
 REPORT_SCHEMA_RELATIVE = "skills/paper2code-core/references/schemas/v1/full-run-report.schema.json"
+EVALUATION_CONTRACT_RELATIVE = "results/evaluation.yaml"
 RECORD_PREFIXES = (
     ".paper2code/",
     "validation/",
@@ -338,6 +339,17 @@ def command_approve(root, run_id, approver):
     result = validate_bundle(root, run_id)
     _, bundle_value = bundle(root, run_id)
     snapshot = verify_code_snapshot(root, bundle_value)
+    evaluation_binding = {}
+    evaluation_path = root / EVALUATION_CONTRACT_RELATIVE
+    if not evaluation_path.is_file():
+        raise ContractError("Full Run approval requires results/evaluation.yaml to freeze evaluation criteria")
+    evaluation_result = run_core(root, "validate-evaluation", "--root", str(root))
+    if evaluation_result["full_run_id"] != run_id:
+        raise ContractError("Evaluation contract is for a different Full Run")
+    evaluation_binding = {
+        "evaluation_contract_path": EVALUATION_CONTRACT_RELATIVE,
+        "evaluation_contract_sha256": canonical_hash(evaluation_path),
+    }
     run_core(root, "check-transition", str(root / STATE_RELATIVE), "--to", APPROVED_STATE)
     gate = {
         "schema_version": SCHEMA_VERSION,
@@ -352,6 +364,7 @@ def command_approve(root, run_id, approver):
         "cpu_validation_report_sha256": canonical_hash(root / CPU_REPORT_RELATIVE),
         "code_revision": snapshot["revision"],
         "schemas": schema_hashes(root),
+        **evaluation_binding,
     }
     write_json(root / GATE_RELATIVE, gate)
     write_json(

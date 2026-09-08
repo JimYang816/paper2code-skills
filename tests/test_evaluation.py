@@ -27,7 +27,7 @@ def write_json(path, value):
 
 
 class EvaluationTests(unittest.TestCase):
-    def scaffold(self, seeds=(3, 5, 7)):
+    def scaffold(self, seeds=(3, 5, 7), contract=None, preregister=True):
         temp = TempDirectory()
         self.addCleanup(temp.cleanup)
         target = Path(temp.name) / "paper"
@@ -68,6 +68,12 @@ class EvaluationTests(unittest.TestCase):
         bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
         bundle["seeds"] = list(seeds)
         write_json(bundle_path, bundle)
+        if preregister:
+            if contract is None:
+                contract = ([self.claim()], None)
+            self.write_contract(target, contract[0], contract[1])
+        if not preregister:
+            return target
         self.run_tool(target, "approve", "--approver", "researcher@example.com")
         self.run_tool(target, "execute")
         return target
@@ -116,16 +122,16 @@ class EvaluationTests(unittest.TestCase):
         )
 
     @staticmethod
-    def claim(identifier="CLM-0001", target_id="MET-0001", validation_ids=None, minimum="low"):
+    def claim(identifier="CLM-0001", target_id="MET-0001", validation_ids=None, minimum="low", independent=True):
         return {
             "id": identifier,
             "title": identifier,
             "scope": "must",
             "implementation": {"validation_ids": validation_ids or ["PATH-0001"]},
-            "execution": {"command_ids": ["CMD-0001"]},
+            "execution": {"command_ids": ["CMD-0001"], "independent_seeds": independent},
             "result": {"metric_id": target_id},
             "evidence": {
-                "provenance": "paper",
+                "provenance": "source-faithful",
                 "minimum_strength": minimum,
                 "required_artifacts": [],
                 "digitization_uncertainty": 0,
@@ -133,8 +139,7 @@ class EvaluationTests(unittest.TestCase):
         }
 
     def test_replicated_claims_advance_to_evaluated(self):
-        target = self.scaffold()
-        self.write_contract(target, [self.claim()])
+        target = self.scaffold(contract=([self.claim()], None))
 
         result = self.run_tool(target, "evaluate")
 
@@ -148,12 +153,11 @@ class EvaluationTests(unittest.TestCase):
         self.run_tool(target, "verify")
 
     def test_partial_outcome_keeps_each_claim_assessment(self):
-        target = self.scaffold()
         claims = [
             self.claim("CLM-0001"),
             self.claim("CLM-0002", validation_ids=["PATH-9999"]),
         ]
-        self.write_contract(target, claims)
+        target = self.scaffold(contract=(claims, None))
 
         result = self.run_tool(target, "evaluate")
 
@@ -165,7 +169,6 @@ class EvaluationTests(unittest.TestCase):
         )
 
     def test_decisive_result_mismatch_is_not_replicated(self):
-        target = self.scaffold()
         metric = {
             "id": "MET-0001",
             "title": "Fixture score",
@@ -176,18 +179,19 @@ class EvaluationTests(unittest.TestCase):
             "tolerance": 0,
             "comparison": "within",
         }
-        self.write_contract(target, [self.claim()], [metric])
+        target = self.scaffold(contract=([self.claim()], [metric]))
 
-        result = self.run_tool(target, "evaluate")
+        result = self.run_tool(target, "evaluate", expected=2)
 
         self.assertEqual("not replicated", result["outcome"])
+        self.assertEqual("revision_required", result["state"])
+        self.assertEqual("result", result["failure"]["class"])
         report = json.loads((target / "results/evaluation-report.yaml").read_text())
         self.assertEqual("failed", report["claims"][0]["result_agreement"]["status"])
         self.assertEqual("not replicated", report["claims"][0]["verdict"])
 
     def test_single_seed_is_reportable_but_not_high_strength(self):
-        target = self.scaffold(seeds=(3,))
-        self.write_contract(target, [self.claim(minimum="high")], [
+        contract = ([self.claim(minimum="high")], [
             {
                 "id": "MET-0001",
                 "title": "Fixture score",
@@ -199,6 +203,7 @@ class EvaluationTests(unittest.TestCase):
                 "comparison": "within",
             }
         ])
+        target = self.scaffold(seeds=(3,), contract=contract)
 
         result = self.run_tool(target, "evaluate")
 
@@ -207,9 +212,28 @@ class EvaluationTests(unittest.TestCase):
         self.assertEqual("low", report["claims"][0]["evidence"]["strength"])
         self.assertFalse(report["claims"][0]["evidence"]["sufficient"])
 
+    def test_non_independent_mismatch_is_inconclusive(self):
+        metric = {
+            "id": "MET-0001",
+            "title": "Fixture score",
+            "path": "{run_dir}/metrics/metric-{seed}.json",
+            "json_pointer": "/score",
+            "aggregation": "mean",
+            "target": 100,
+            "tolerance": 0,
+            "comparison": "within",
+        }
+        target = self.scaffold(contract=([self.claim(independent=False)], [metric]))
+
+        result = self.run_tool(target, "evaluate")
+
+        self.assertEqual("inconclusive", result["outcome"])
+        report = json.loads((target / "results/evaluation-report.yaml").read_text())
+        self.assertEqual("moderate", report["claims"][0]["evidence"]["strength"])
+        self.assertEqual("inconclusive", report["claims"][0]["verdict"])
+
     def test_changed_preregistration_invalidates_evaluation(self):
-        target = self.scaffold()
-        self.write_contract(target, [self.claim()])
+        target = self.scaffold(contract=([self.claim()], None))
         self.run_tool(target, "evaluate")
         contract_path = target / "results/evaluation.yaml"
         contract = json.loads(contract_path.read_text())
@@ -220,8 +244,39 @@ class EvaluationTests(unittest.TestCase):
 
         self.assertIn("evaluation contract changed", result["error"] if result else "")
 
+    def test_tampered_verdict_is_rejected_by_verification(self):
+        target = self.scaffold(contract=([self.claim()], None))
+        self.run_tool(target, "evaluate")
+        report_path = target / "results/evaluation-report.yaml"
+        report = json.loads(report_path.read_text())
+        report["claims"][0]["verdict"] = "not replicated"
+        report["outcome"] = "not replicated"
+        write_json(report_path, report)
+
+        result = self.run_tool(target, "verify", expected=2)
+
+        self.assertIn("verdicts do not match", result["error"] if result else "")
+
+    def test_evaluation_report_numeric_bounds_are_enforced(self):
+        target = self.scaffold(contract=([self.claim()], None))
+        self.run_tool(target, "evaluate")
+        report_path = target / "results/evaluation-report.yaml"
+        report = json.loads(report_path.read_text())
+        report["claims"][0]["evidence"]["validation_coverage"] = 2
+        write_json(report_path, report)
+
+        result = self.run_tool(target, "verify", expected=2)
+
+        self.assertIn("at most 1", result["error"] if result else "")
+
+    def test_evaluation_requires_preregistration_before_full_run(self):
+        target = self.scaffold(preregister=False)
+
+        result = self.run_tool(target, "approve", "--approver", "researcher@example.com", expected=2)
+
+        self.assertIn("requires results/evaluation.yaml", result["error"] if result else "")
+
     def test_evidence_failure_routes_to_needs_decision(self):
-        target = self.scaffold()
         metric = {
             "id": "MET-0001",
             "title": "Missing score",
@@ -232,7 +287,7 @@ class EvaluationTests(unittest.TestCase):
             "tolerance": 0,
             "comparison": "within",
         }
-        self.write_contract(target, [self.claim()], [metric])
+        target = self.scaffold(contract=([self.claim()], [metric]))
 
         result = self.run_tool(target, "evaluate", expected=2)
 

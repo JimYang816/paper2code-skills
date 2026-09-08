@@ -58,25 +58,28 @@
           "result_agreement": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["status", "metric_id", "observed", "target", "tolerance", "message"],
+            "required": ["status", "metric_id", "observed", "target", "tolerance", "standard_deviation", "max_standard_deviation", "message"],
             "properties": {
               "status": {"enum": ["passed", "failed", "inconclusive"]},
               "metric_id": {"type": "string", "minLength": 1},
               "observed": {"type": ["number", "null"]},
               "target": {"type": "number"},
               "tolerance": {"type": "number", "minimum": 0},
+              "standard_deviation": {"type": ["number", "null"], "minimum": 0},
+              "max_standard_deviation": {"type": ["number", "null"], "minimum": 0},
               "message": {"type": "string"}
             }
           },
           "evidence": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["strength", "minimum_strength", "sufficient", "seed_count", "message"],
+            "required": ["strength", "minimum_strength", "sufficient", "seed_count", "validation_coverage", "message"],
             "properties": {
               "strength": {"enum": ["low", "moderate", "high"]},
               "minimum_strength": {"enum": ["low", "moderate", "high"]},
               "sufficient": {"type": "boolean"},
               "seed_count": {"type": "integer", "minimum": 0},
+              "validation_coverage": {"type": "number", "minimum": 0, "maximum": 1},
               "message": {"type": "string"}
             }
           },
