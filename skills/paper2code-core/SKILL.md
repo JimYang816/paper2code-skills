@@ -39,3 +39,12 @@ Preregistration hash to be bound by the Full Run Gate before execution. The
 paper-evaluation Stage Skill advances full_run_complete to evaluated only with
 a current report; paper-diagnosis records typed failure routes and does not
 edit preregistered criteria.
+
+The lifecycle router is read-only:
+
+```sh
+python skills/paper2code-core/scripts/paper2code.py route --root .
+```
+
+It validates the current boundary and reports only legal next Stage Skills;
+`validate-diagnosis --root .` checks an exception state's recorded route.

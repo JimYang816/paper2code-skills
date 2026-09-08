@@ -33,6 +33,13 @@ NORMAL_STATES = [
     "evaluated",
 ]
 EXCEPTION_STATES = {"needs_decision", "diagnosing", "revision_required"}
+DIAGNOSIS_STATES = {
+    "software": "diagnosing",
+    "scientific": "diagnosing",
+    "result": "revision_required",
+    "environment": "diagnosing",
+    "evidence": "needs_decision",
+}
 INITIAL_RECORDS = {
     "dossier/evidence.yaml": "items",
     "dossier/ambiguities.yaml": "ambiguities",
@@ -55,6 +62,7 @@ FULL_RUN_GATE_SCHEMA = SCHEMAS_DIR / "full-run-gate.schema.json"
 FULL_RUN_REPORT_SCHEMA = SCHEMAS_DIR / "full-run-report.schema.json"
 EVALUATION_SCHEMA = SCHEMAS_DIR / "evaluation.schema.json"
 EVALUATION_REPORT_SCHEMA = SCHEMAS_DIR / "evaluation-report.schema.json"
+DIAGNOSIS_SCHEMA = SCHEMAS_DIR / "diagnosis.schema.json"
 VALIDATION_KINDS = {"data", "model", "baseline", "metric", "reporting"}
 VALIDATION_CHECKS = ("invariants", "units", "shapes", "gradients")
 PLACEHOLDER_RE = re.compile(r"\b(TODO|TBD|FIXME|PLACEHOLDER)\b", flags=re.IGNORECASE)
@@ -1128,6 +1136,207 @@ def command_validate_evaluation_report(root):
     }
 
 
+def command_validate_diagnosis(root):
+    root = root.resolve()
+    state_path = root / ".paper2code/state.yaml"
+    diagnosis_path = root / "results/diagnosis.yaml"
+    if not state_path.is_file():
+        raise ContractError("Missing .paper2code/state.yaml")
+    if not diagnosis_path.is_file():
+        raise ContractError("Missing results/diagnosis.yaml")
+
+    state = load_json(state_path)
+    validate_state(state)
+    if state["state"] not in EXCEPTION_STATES:
+        raise ContractError(
+            f"Diagnosis requires an exception state, got {state['state']}"
+        )
+
+    diagnosis = load_json(diagnosis_path)
+    validate_schema_file(diagnosis, DIAGNOSIS_SCHEMA, "results/diagnosis.yaml")
+    route = diagnosis["route"]
+    if route["state"] != state["state"]:
+        raise ContractError("Diagnosis route state differs from .paper2code/state.yaml")
+    if route["return_target"] != state["return_target"]:
+        raise ContractError("Diagnosis return target differs from .paper2code/state.yaml")
+    if DIAGNOSIS_STATES[diagnosis["failure"]["class"]] != state["state"]:
+        raise ContractError("Diagnosis failure class does not match its exception state")
+
+    source_report = diagnosis["source_report"]
+    if source_report != "external":
+        _validate_relative_artifact(source_report, "Diagnosis source report")
+        source_path = root / source_report
+        if not source_path.is_file():
+            raise ContractError(f"Diagnosis references missing source report: {source_report}")
+        if diagnosis["source_sha256"] != canonical_hash(source_path):
+            raise ContractError("Diagnosis source report hash is stale")
+
+    return {
+        "valid": True,
+        "state": state["state"],
+        "return_target": state["return_target"],
+        "source_report": source_report,
+    }
+
+
+STAGE_FOR_STATE = {
+    "setup_pending": "setup-paper2code",
+    "ready_for_extraction": "extract-paper2code",
+    "evidence_extracted": "paper-grilling",
+    "evidence_approved": "paper-spec",
+    "specification_ready": "paper-spec",
+    "specification_approved": "implement",
+    "implementation_active": "paper-validation",
+    "cpu_validated": "paper-run",
+    "full_run_approved": "paper-run",
+    "full_run_complete": "paper-evaluation",
+}
+
+NORMAL_ROUTE_TARGETS = {
+    "setup_pending": "ready_for_extraction",
+    "ready_for_extraction": "evidence_extracted",
+    "evidence_extracted": "evidence_approved",
+    "evidence_approved": "specification_ready",
+    "specification_ready": "specification_approved",
+    "specification_approved": "implementation_active",
+    "implementation_active": "cpu_validated",
+    "cpu_validated": "full_run_approved",
+    "full_run_approved": "full_run_complete",
+    "full_run_complete": "evaluated",
+}
+
+
+def _route_validation(root, state_name):
+    checks = []
+
+    def check(name, function):
+        try:
+            checks.append({"name": name, "valid": True, "result": function(root)})
+        except (ContractError, OSError, subprocess.CalledProcessError) as exc:
+            checks.append({"name": name, "valid": False, "error": str(exc)})
+
+    if state_name in {"setup_pending", "ready_for_extraction"}:
+        check("validate-setup", command_validate_setup)
+    elif state_name == "evidence_extracted":
+        check("validate-dossier", command_validate_dossier)
+    elif state_name == "evidence_approved":
+        check("validate-evidence-gate", command_validate_evidence_gate)
+        check(
+            "paper-grilling verify-gate",
+            lambda target: _run_read_only_skill(
+                target, "skills/paper-grilling/scripts/gate.py", "verify-gate"
+            ),
+        )
+    elif state_name == "specification_ready":
+        check("validate-specification", command_validate_specification)
+    elif state_name == "specification_approved":
+        check("validate-specification-gate", command_validate_specification_gate)
+        check(
+            "paper-spec verify-gate",
+            lambda target: _run_read_only_skill(
+                target, "skills/paper-spec/scripts/spec.py", "verify-gate"
+            ),
+        )
+    elif state_name == "implementation_active":
+        check("validate-cpu-contract", command_validate_cpu_contract)
+    elif state_name == "cpu_validated":
+        check("validate-cpu-report", command_validate_cpu_report)
+        check(
+            "paper-validation verify",
+            lambda target: _run_read_only_skill(
+                target, "skills/paper-validation/scripts/validate.py", "verify"
+            ),
+        )
+    elif state_name == "full_run_approved":
+        check("validate-full-run-gate", command_validate_full_run_gate)
+    elif state_name == "full_run_complete":
+        check("validate-full-run-report", command_validate_full_run_report)
+        check("validate-evaluation", command_validate_evaluation)
+    elif state_name == "evaluated":
+        check("validate-evaluation-report", command_validate_evaluation_report)
+    elif state_name in EXCEPTION_STATES:
+        check("validate-diagnosis", command_validate_diagnosis)
+    else:
+        raise ContractError(f"Unknown route state: {state_name}")
+    return checks
+
+
+def _run_read_only_skill(root, relative_script, *arguments):
+    script = root / relative_script
+    if not script.is_file():
+        raise ContractError(f"Missing stage validator: {relative_script}")
+    completed = subprocess.run(
+        [sys.executable, str(script), "--root", str(root), *arguments],
+        cwd=root,
+        text=True,
+        capture_output=True,
+    )
+    if completed.returncode != 0:
+        raise ContractError(completed.stderr.strip() or completed.stdout.strip())
+    try:
+        return json.loads(completed.stdout)
+    except json.JSONDecodeError as exc:
+        raise ContractError(f"Stage validator returned invalid JSON: {relative_script}") from exc
+
+
+def command_route(root):
+    root = root.resolve()
+    state_path = root / ".paper2code/state.yaml"
+    if not state_path.is_file():
+        raise ContractError("Missing .paper2code/state.yaml")
+    state = load_json(state_path)
+    validate_state(state)
+
+    checks = _route_validation(root, state["state"])
+    errors = [check["error"] for check in checks if not check["valid"]]
+    ready = not errors
+    current = state["state"]
+    legal_next = []
+
+    if current in NORMAL_ROUTE_TARGETS:
+        target = NORMAL_ROUTE_TARGETS[current]
+        legal_next.append(
+            {
+                "skill": STAGE_FOR_STATE[current],
+                "target": target,
+                "return_target": None,
+                "legal": True,
+                "ready": ready,
+            }
+        )
+    elif current in EXCEPTION_STATES:
+        return_target = state["return_target"]
+        legal_next.append(
+            {
+                "skill": "paper-diagnosis",
+                "target": current,
+                "return_target": return_target,
+                "legal": True,
+                "ready": ready,
+            }
+        )
+        if ready and return_target in STAGE_FOR_STATE:
+            legal_next.append(
+                {
+                    "skill": STAGE_FOR_STATE[return_target],
+                    "target": return_target,
+                    "return_target": return_target,
+                    "legal": True,
+                    "ready": True,
+                }
+            )
+
+    return {
+        "stage": "paper2code-router",
+        "valid": ready,
+        "state": state,
+        "validation": checks,
+        "validation_errors": errors,
+        "legal_next": legal_next,
+        "terminal": current == "evaluated",
+    }
+
+
 def transition_allowed(current, target, return_target):
     if target in EXCEPTION_STATES:
         return current in NORMAL_STATES and return_target == current
@@ -1265,6 +1474,18 @@ def build_parser():
     )
     evaluation_report.add_argument("--root", type=Path, required=True)
     evaluation_report.set_defaults(handler=lambda args: command_validate_evaluation_report(args.root))
+
+    diagnosis = commands.add_parser(
+        "validate-diagnosis", help="validate the recorded exception route"
+    )
+    diagnosis.add_argument("--root", type=Path, required=True)
+    diagnosis.set_defaults(handler=lambda args: command_validate_diagnosis(args.root))
+
+    route = commands.add_parser(
+        "route", help="validate the current state and report legal next Stage Skills"
+    )
+    route.add_argument("--root", type=Path, required=True)
+    route.set_defaults(handler=lambda args: command_route(args.root))
 
     hash_command = commands.add_parser("canonical-hash", help="hash canonical JSON")
     hash_command.add_argument("document", type=Path)
