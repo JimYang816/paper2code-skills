@@ -1,6 +1,7 @@
 """Exercise the independent numerical reference and CPU Validation Gate."""
 
 import json
+import shutil
 import subprocess
 import sys
 import unittest
@@ -145,6 +146,27 @@ class ValidationTests(unittest.TestCase):
         self.assertEqual("passed", report["math"][0]["status"])
         verified = self.execute(VALIDATION, target, "verify")
         self.assertTrue(verified["valid"])
+
+    def test_numerical_reference_accepts_equivalence_and_rejects_gain_fault(self):
+        for fault in (False, True):
+            with self.subTest(fault=fault):
+                target = self.scaffold()
+                contract = make_contract(target)
+                for name in ("channel.py", "reference.py", "check_channel.py"):
+                    shutil.copyfile(ROOT / "tests/fixtures/scientific" / name,
+                                    target / "validation" / ("references" if name == "reference.py" else "") / name)
+                math = contract["critical_math"][0]
+                math["reference"] = "validation/references/reference.py"
+                math["command"] = ["{python}", "{root}/validation/check_channel.py"]
+                if fault:
+                    math["command"].append("--fault")
+                write_json(target / "validation/validation.yaml", contract)
+                result = self.execute(VALIDATION, target, "run", expected=2 if fault else 0)
+                self.assertEqual("diagnosing" if fault else "cpu_validated", result["state"])
+                if fault:
+                    self.assertEqual("scientific", result["failure"]["class"])
+                else:
+                    self.assertTrue(self.execute(VALIDATION, target, "verify")["valid"])
 
     def test_cpu_transition_rejects_report_without_reference_checks(self):
         target = self.scaffold()

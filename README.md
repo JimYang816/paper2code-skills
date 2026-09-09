@@ -22,6 +22,9 @@ python skills/paper2code-core/scripts/verify_closure.py --root .
 python -m unittest discover -s tests -v
 ```
 
+See [generic validation evidence](docs/validation/issue-11.md) for scenario
+coverage, independent Behavioral Forward Tests, and real-tool limitations.
+
 To independently audit upstream bytes, fetch Matt Pocock's skills repository
 and pass its checkout to the verifier:
 

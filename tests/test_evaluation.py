@@ -1,6 +1,7 @@
 """Exercise claim-level Full Run evaluation and typed diagnosis routing."""
 
 import json
+import hashlib
 import subprocess
 import sys
 import unittest
@@ -211,6 +212,38 @@ class EvaluationTests(unittest.TestCase):
         report = json.loads((target / "results/evaluation-report.yaml").read_text())
         self.assertEqual("low", report["claims"][0]["evidence"]["strength"])
         self.assertFalse(report["claims"][0]["evidence"]["sufficient"])
+
+    def test_digitization_uncertainty_bounds_agreement_and_caps_strength(self):
+        for target_value, outcome in ((10.25, "replicated"), (10.5, "not replicated")):
+            with self.subTest(target=target_value):
+                target = self.scaffold(preregister=False)
+                record_path = target / "dossier/digitization.json"
+                write_json(record_path, {
+                    "source": "synthetic Figure 2, page 2", "crop": [0, 0, 100, 100],
+                    "axis_calibration": {"x": [0, 2], "y": [0, 20]},
+                    "points": [[1, target_value]], "method": "synthetic known coordinates",
+                    "reviewer": "independent fixture calculation", "uncertainty": 0.25,
+                })
+                claim = self.claim(minimum="moderate")
+                claim["evidence"].update({
+                    "digitization_uncertainty": 0.25,
+                    "digitization_record": "dossier/digitization.json",
+                    "digitization_record_sha256": hashlib.sha256(record_path.read_bytes()).hexdigest(),
+                    "independent_cross_check": True,
+                })
+                metric = {
+                    "id": "MET-0001", "title": "Digitized score",
+                    "path": "{run_dir}/metrics/metric-{seed}.json", "json_pointer": "/score",
+                    "aggregation": "mean", "target": target_value, "tolerance": 0,
+                    "comparison": "within",
+                }
+                self.write_contract(target, [claim], [metric])
+                self.run_tool(target, "approve", "--approver", "researcher@example.com")
+                self.run_tool(target, "execute")
+                result = self.run_tool(target, "evaluate", expected=0 if outcome == "replicated" else 2)
+                self.assertEqual(outcome, result["outcome"])
+                report = json.loads((target / "results/evaluation-report.yaml").read_text())
+                self.assertEqual("moderate", report["claims"][0]["evidence"]["strength"])
 
     def test_non_independent_mismatch_is_inconclusive(self):
         metric = {

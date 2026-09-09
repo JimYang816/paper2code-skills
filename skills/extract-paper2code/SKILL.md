@@ -7,7 +7,7 @@ disable-model-invocation: true
 # Extract a Paper Dossier
 
 Work at the target Reproduction Repository root. Pass the target PDF as
-`--pdf`. Do not install missing tools; report them and stop.
+`--pdf`. Use available tools without installing dependencies.
 
 First check capabilities:
 
@@ -17,9 +17,12 @@ python skills/extract-paper2code/scripts/check_capabilities.py \
   --output .paper2code/capability-reports/extraction.yaml
 ```
 
-If native text or OCR fallback and page rendering are unavailable, the command
-returns a recoverable Capability Report. Resolve only capabilities the
-researcher approves, then rerun.
+Proceed when page rendering and either native text extraction or OCR are
+available. The command exits 3 when this minimum is missing; report the
+Capability Report and stop. Missing optional OCR does not block native-text
+pages. For scanned pages that need OCR, report missing OCR and stop before
+finalizing; preserve the incomplete dossier for recovery. Resolve only
+capabilities the researcher approves, then rerun.
 
 Extract raw, page-scoped artifacts and the human-readable dossier:
 

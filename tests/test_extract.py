@@ -2,6 +2,7 @@
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import unittest
@@ -64,7 +65,7 @@ class ExtractTests(unittest.TestCase):
         make_pdf(pdf)
         return folder, target, pdf
 
-    def make_tool_env(self, folder):
+    def make_tool_env(self, folder, scanned=False):
         tools = folder / "tools"
         tools.mkdir(exist_ok=True)
         env = os.environ.copy()
@@ -74,8 +75,9 @@ class ExtractTests(unittest.TestCase):
             (tools / "pdftotext.cmd").write_text(
                 "@echo off\r\n"
                 "set OUT=\r\n"
-                "for %%A in (%*) do set OUT=%%A\r\n"
-                'echo Page 1 Figure 1 Table 1 plot y=x > "%OUT%"\r\n',
+                "for %%A in (%*) do set OUT=%%A\r\n" +
+                ('type nul > "%OUT%"\r\n' if scanned else
+                 'echo Page 1 Figure 1 Table 1 plot y=x > "%OUT%"\r\n'),
                 encoding="utf-8",
             )
             (tools / "pdftoppm.cmd").write_text(
@@ -95,20 +97,43 @@ class ExtractTests(unittest.TestCase):
             )
         else:
             (tools / "pdftotext").write_text(
-                "#!/bin/sh\nout=${@: -1}\necho 'Page 1 Figure 1 Table 1 plot y=x' > \"$out\"\n",
+                "#!/bin/sh\nfor out do :; done\n" +
+                (': > "$out"\n' if scanned else
+                 'echo "Page 1 Figure 1 Table 1 plot y=x" > "$out"\n'),
                 encoding="utf-8",
             )
             (tools / "pdftoppm").write_text(
-                "#!/bin/sh\nout=${@: -1}\necho fake > \"${out}-01.png\"\necho fake > \"${out}-02.png\"\n",
+                "#!/bin/sh\nfor out do :; done\necho fake > \"${out}-01.png\"\necho fake > \"${out}-02.png\"\n",
                 encoding="utf-8",
             )
             (tools / "tesseract").write_text(
-                "#!/bin/sh\nout=${@: -1}\necho 'ocr fallback' > \"${out}.txt\"\n",
+                "#!/bin/sh\nfor out do :; done\necho 'ocr fallback' > \"${out}.txt\"\n",
                 encoding="utf-8",
             )
             for name in ("pdftotext", "pdftoppm", "tesseract"):
                 (tools / name).chmod(0o755)
         return env
+
+    def test_native_and_scanned_pages_preserve_extraction_provenance(self):
+        for scanned in (False, True):
+            with self.subTest(scanned=scanned):
+                folder, target, pdf = self.scaffold()
+                fixture = ROOT / "tests/fixtures/papers" / ("scanned.pdf" if scanned else "native.pdf")
+                shutil.copyfile(fixture, pdf)
+                completed = subprocess.run(
+                    [sys.executable, str(EXTRACT), "extract", "--pdf", str(pdf), "--root", str(target)],
+                    text=True, capture_output=True, env=self.make_tool_env(folder, scanned=scanned),
+                )
+                self.assertEqual(0, completed.returncode, completed.stderr)
+                manifest = json.loads((target / ".paper2code/extraction/manifest.yaml").read_text())
+                self.assertEqual([1, 2], [page["page"] for page in manifest["pages"]])
+                for page in manifest["pages"]:
+                    self.assertTrue(page["has_text"])
+                    self.assertEqual(scanned, page["ocr"] is not None)
+                    self.assertTrue((target / page["text"]).is_file())
+                    self.assertTrue((target / page["render"]).is_file())
+                state = json.loads((target / ".paper2code/state.yaml").read_text())
+                self.assertEqual("ready_for_extraction", state["state"])
 
     def test_capability_report_covers_required_categories(self):
         folder, target, pdf = self.scaffold()
@@ -143,6 +168,20 @@ class ExtractTests(unittest.TestCase):
             names,
         )
         self.assertEqual([], payload["missing"])
+
+    def test_native_path_does_not_require_optional_ocr(self):
+        folder, target, pdf = self.scaffold()
+        env = self.make_tool_env(folder)
+        for path in (folder / "tools").glob("tesseract*"):
+            path.unlink()
+        env["PATH"] = str(folder / "tools")
+        completed = subprocess.run(
+            [sys.executable, str(CHECK), "--pdf", str(pdf)],
+            text=True, capture_output=True, env=env,
+        )
+        self.assertEqual(0, completed.returncode, completed.stderr or completed.stdout)
+        report = json.loads(completed.stdout)
+        self.assertIn("OCR fallback", {item["name"] for item in report["missing"]})
 
     def test_missing_capabilities_report_and_do_not_mutate(self):
         folder, target, pdf = self.scaffold()

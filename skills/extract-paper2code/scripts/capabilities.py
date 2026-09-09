@@ -74,3 +74,9 @@ def build_report(pdf=None):
 
 def render_report(report=None):
     return json.dumps(report or build_report(), indent=2, sort_keys=True) + "\n"
+
+
+def required_capabilities_present(report):
+    available = {item["name"] for item in report["available"]}
+    text_ready = "Native text extraction" in available or "OCR fallback" in available
+    return text_ready and "Page rendering" in available

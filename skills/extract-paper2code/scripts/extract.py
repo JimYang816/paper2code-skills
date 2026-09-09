@@ -13,7 +13,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from capabilities import build_report, executable
+from capabilities import build_report, executable, required_capabilities_present
 
 
 SCHEMA_VERSION = "1.0"
@@ -175,13 +175,6 @@ def write_capability_report(root, pdf):
     path = root / ".paper2code/capability-reports/extraction.yaml"
     write_json(path, report)
     return report, path
-
-
-def required_capabilities_present(report):
-    available = {item["name"] for item in report["available"]}
-    text_ready = "Native text extraction" in available or "OCR fallback" in available
-    render_ready = "Page rendering" in available
-    return text_ready and render_ready
 
 
 def command_extract(args):

@@ -333,12 +333,12 @@
       ],
       "files": {
         "references/extraction.md": "603601dcb0229a7174077f7d2264bd09d21aac7df293e3bce3e69ddd29c8412a",
-        "scripts/capabilities.py": "e882f263288456f71a20cbff7c43b88958f742dd19f4380e3a64bed5c7bd679a",
-        "scripts/check_capabilities.py": "31d8c2ca8f6c56906418dfac8c4302859a20ee5be844857eb05c6892b3d0f28d",
-        "scripts/extract.py": "2f6d4eddc985bf261c570c9aac72da8b2860ff062cbfe8a737b54a8cdf573946",
-        "SKILL.md": "4bb7b0b27827a0969267b2d4b88be86989be4e81194f11ddfa328b6c12e4965f"
+        "scripts/capabilities.py": "be03ac989804419cc7ec5649512b335f390810215f3aaac8e492ecd233a30054",
+        "scripts/check_capabilities.py": "ac75166b26bd8250b9a0ed1aeb489405be15312517c036ebd457c7839a564869",
+        "scripts/extract.py": "7032b4aae9f54b3a01058269fcaa6755e83d0a0a049776dd790ff8fc881ee9c7",
+        "SKILL.md": "1fcc2f8c0680b62378faa6ec1775c2dbf6fc3e7126f04e75a5f17cda8b1c3496"
       },
-      "content_hash": "28a09a6951a84e1ee87615e6e6276c2d6724352db4f8f5600d67deb70ffc731d"
+      "content_hash": "3493a763030e075d796d810e36bcc2ae4d3dfba3efa5d2d3c88254e544678d2c"
     },
     "paper-grilling": {
       "classification": "new",
